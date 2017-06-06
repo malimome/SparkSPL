@@ -1,5 +1,8 @@
 Install Python3.5 + Jupyter + PLY (python lex, yacc)
 
+RUN:
+python3 parser.py
+
 # PLY
 homepage: http://www.dabeaz.com/ply/index.html
 examples: https://github.com/dabeaz/ply/tree/master/example
