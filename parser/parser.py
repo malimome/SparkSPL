@@ -1,4 +1,6 @@
 import sys
+from ply.cpp import literals
+from math import nan
 from basetrans import SparkTrans
 
 #sys.path.insert(0, "../..")
@@ -21,8 +23,8 @@ class Parser(object):
         self.debug = kw.get('debug', 0)
         self.names = {}
         try:
-            modname = os.path.split(os.path.splitext(__file__)[0])[
-                          1] + "_" + self.__class__.__name__
+            modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" \
+                      + self.__class__.__name__
         except:
             modname = "parser" + "_" + self.__class__.__name__
         self.debugfile = modname + ".dbg"
@@ -30,13 +32,13 @@ class Parser(object):
         # print self.debugfile, self.tabmodule
 
         # Build the lexer and parser
-        lex.lex(module=self, debug=self.debug, optimize=True)
+        lex.lex(module=self, debug=self.debug)#, optimize=True)
         yacc.yacc(module=self,
                   debug=self.debug,
                   debugfile=self.debugfile,
                   tabmodule=self.tabmodule)
 
-    def run(self, inputg=None):
+    def run(self, inputg = None):
         if inputg is not None:
             ret = yacc.parse(inputg)
             return ret
@@ -51,10 +53,13 @@ class Parser(object):
 
 
 class Calc(Parser):
+
+    literals = r'+-*/%,()<>='
     trans = SparkTrans()
     tokens = [
-        'NAME', 'NUMBER', 'SEP',
-        'LPAREN', 'RPAREN', 'COMMA'
+        'NAME', 'SEP',
+        'NUMBER', 'FLOAT',
+        'GE', 'LE', 'NE', 'IDENT'
     ]
 
     RESERVED = {
@@ -77,10 +82,20 @@ class Calc(Parser):
 
     # Tokens
     t_SEP = r'\|'
-    t_LPAREN = r'\('
-    t_RPAREN = r'\)'
-    t_COMMA = r','
-    t_NAME = r'[a-zA-Z_][a-zA-Z0-9_]*'
+    t_ignore = " \t"
+    t_GE = r'>='
+    t_LE = r'<='
+    t_NE = r'!='
+    t_IDENT = r'=='
+
+    def t_FLOAT(self,t):
+        r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
+        try:
+            t.value = float(t.value)
+        except ValueError:
+            print("Floating value problem: %s" % t.value)
+            t.value = nan
+        return t
 
     def t_NUMBER(self, t):
         r'\d+'
@@ -94,10 +109,11 @@ class Calc(Parser):
 
     def t_NAME(self, t):
         r'[a-zA-Z_][a-zA-Z_0-9]*'
-        t.type = Calc.RESERVED.get(t.value, 'NAME')  # Check for reserved words
+        # Check for reserved words
+        t.type = Calc.RESERVED.get(t.value, 'NAME')
         return t
 
-    t_ignore = " \t"
+    #t_ignore = " \t"
 
     def t_newline(self, t):
         r'\n+'
@@ -115,59 +131,63 @@ class Calc(Parser):
         Calc.trans.p_statement(p)
 
     def p_commands(self, p):
-        """commands : commands SEP commandst
-                   | commandst """
+        """commands : commands SEP command
+                    | command """
         Calc.trans.p_commands(p)
 
-    def p_statement_table(self, p):
-        """ commandst : TABLE argfields """
+    def p_table(self, p):
+        """ command : TABLE field-list """
         Calc.trans.p_statement_table(p)
 
-    def p_statement_eval(self, p):
-        """commandst : EVAL evalst"""
+    def p_eval(self, p):
+        """ command : EVAL evalst """
         Calc.trans.p_statement_eval(p)
 
-    def p_statement_evalst(self, p):
-        """evalst : argfields"""
+    def p_evalst(self, p):
+        """evalst : field-list"""
         Calc.trans.p_statement_evalst(p)
 
-    def p_statement_where(self, p):
-        """commandst : WHERE conditionalst"""
+    def p_where(self, p):
+        """ command : WHERE conditionalst"""
         Calc.trans.p_statement_where(p)
 
-    def p_statement_condition(self, p):
-        """conditionalst : argfields"""
+    def p_condition(self, p):
+        """ conditionalst : field-list """
         Calc.trans.p_statement_condition(p)
 
-    def p_statement_stats(self, p):
-        """commandst : STATS aggstats BY argfields"""
+    def p_stats(self, p):
+        """command : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
         Calc.trans.p_statement_stats(p)
 
-    def p_statement_agg(self, p):
-        """aggstats : aggstats COMMA aggfuncexpr 
-                    | aggfuncexpr"""
+    def p_stats_clause(self, p):
+        """ stats-agg-terms : stats-agg-terms ',' stats-agg-term 
+                            | stats-agg-term """
         Calc.trans.p_statement_agg(p)
 
-    def p_statement_aggfuncexpr(self, p):
-        """aggfuncexpr : aggfunc LPAREN name RPAREN AS name
-                        | aggfunc LPAREN name RPAREN """
+    def p_stat_agg_term(self, p):
+        """ stats-agg-term : stats-function '(' expr ')' AS expr
+                           | stats-function '(' expr ')' """
         Calc.trans.p_statement_aggfuncexpr(p)
 
-    def p_statement_aggfunc(self, p):
-        """aggfunc : MIN
+    def p_statement_stats_function(self, p):
+        """stats-function : MIN
                     | MAX
                     | AVG
                     | STD """
         Calc.trans.p_statement_aggfunc(p)
 
-    def p_statement_argstats(self, p):
-        """argfields : argfields COMMA name
-                    | name """
+    def p_field_list_comma(self, p):
+        """field-list : field-list ',' NAME
+                      | NAME """
         Calc.trans.p_statement_argstats(p)
 
+    def p_field_list_space(self,p):
+        """ field-list : field-list NAME """
+        p[0] = '%s,%s'%(p[2],p[1])
+
     def p_expression_name(self, p):
-        'name : NAME'
+        'expr : NAME'
         Calc.trans.p_expression_name(p)
 
     def p_error(self, p):
