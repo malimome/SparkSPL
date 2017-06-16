@@ -83,6 +83,8 @@ class Calc(Parser):
     t_NE = r'!='
     t_IDENT = r'=='
 
+    Statsfunctions = ('avg','c','count','dc','distinct_count','earliest','estdc','estdc_error','exactperc<int>','first','last','latest','list','max','median','min','mode','p<int>','perc<int>','range','stdev','stdevp','sum','sumsq','upperperc<int>','values','var','varp')
+
     def t_FLOAT(self,t):
         r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
         try:
@@ -159,13 +161,11 @@ class Calc(Parser):
         Calc.trans.p_agg(p)
 
     def p_stat_agg_term(self, p):
-        """ stats-agg-term : stats-function '(' expr ')' AS expr
-                           | stats-function '(' expr ')' """
+        """ stats-agg-term : NAME '(' expr ')' AS NAME
+                           | NAME '(' expr ')' """
+        if p[1] not in Calc.Statsfunctions:
+           sys.exit('Unknow stats function >> %s <<'%p[1])  
         Calc.trans.p_stat_agg_term(p)
-
-    def p_stats_function(self, p):
-        """stats-function : NAME"""
-        Calc.trans.p_stats_function(p)
 
     def p_field_list_comma(self, p):
         """field-list : field-list ',' NAME

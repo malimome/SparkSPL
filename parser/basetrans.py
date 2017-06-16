@@ -72,8 +72,6 @@ class SparkTrans(BaseTrans):
             p[0] = "%s(%s).alias(%s)"%(p[1], p[3], p[6])
         #self.arg_check(p, 6, "%s(%s)" % (p[1], p[3]), "%s(%s).alias(%s)" % (p[1], p[3], pi(p, 6)))
 
-    def p_stats_function(self, p):
-        p[0] = p[1]
 
     def p_field_list_comma(self, p):
         p[0] = ",".join([p[i] for i in range(1, len(p), 2)])
