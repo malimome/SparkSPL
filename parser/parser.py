@@ -1,6 +1,4 @@
 import sys
-#from ply.cpp import literals
-#from math import nan
 from basetrans import SparkTrans
 
 if sys.version_info[0] >= 3:
@@ -148,7 +146,7 @@ class Calc(Parser):
 
     def p_evalexpr_group(self, p):
        """ evalexpr : '(' evalexpr ')' """
-       p[0] = p[2]
+       p[0] = '(%s)'%p[2]
 
     def p_evalexpr_terminal(self, p):
         """evalexpr : NAME 
@@ -206,5 +204,5 @@ if __name__ == '__main__':
     ret = calc.run("""index 
     | table a1, a2
     | stats max(a1) as a11, avg(a2) as a21 by a5, a6 
-    | eval a5 = r1*2.3+r2""")
+    | eval a5 = ((r1))*(2.3+(r2)) """)
     print(ret)
