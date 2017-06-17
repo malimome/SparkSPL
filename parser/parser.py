@@ -118,6 +118,7 @@ class Calc(Parser):
         print("Illegal character '%s'" % t.value[0])
         t.lexer.skip(1)
 
+
     start = "statement"
 
     def p_statement(self, p):
@@ -135,12 +136,25 @@ class Calc(Parser):
         Calc.trans.p_table(p)
 
     def p_eval(self, p):
-        """ command : EVAL evalst """
+        """ command : EVAL NAME '=' evalexpr """
         Calc.trans.p_eval(p)
 
-    def p_evalst(self, p):
-        """evalst : field-list"""
-        Calc.trans.p_evalst(p)
+    def p_evalexpr_arithmetic(self, p):
+       """ evalexpr : evalexpr '+' evalexpr
+                    | evalexpr '-' evalexpr
+                    | evalexpr '/' evalexpr
+                    | evalexpr '*' evalexpr """
+       p[0] = '%s%s%s'% (p[1],p[2],p[3])
+
+    def p_evalexpr_group(self, p):
+       """ evalexpr : '(' evalexpr ')' """
+       p[0] = p[2]
+
+    def p_evalexpr_terminal(self, p):
+        """evalexpr : NAME 
+                    | FLOAT 
+                    | NUMBER """
+        Calc.trans.p_evalexpr_terminal(p)
 
     def p_where(self, p):
         """ command : WHERE conditionalst"""
@@ -192,5 +206,5 @@ if __name__ == '__main__':
     ret = calc.run("""index 
     | table a1, a2
     | stats max(a1) as a11, avg(a2) as a21 by a5, a6 
-    | eval a5""")
+    | eval a5 = r1*2.3+r2""")
     print(ret)

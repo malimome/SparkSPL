@@ -44,10 +44,10 @@ class SparkTrans(BaseTrans):
         p[0] = "select(%s)" % p[2]
 
     def p_eval(self, p):
-        p[0] = "withColumn(%s)" % p[2]
+        p[0] = "withColumn(%s,%s)" % (p[2],p[4])
 
-    def p_evalst(self, p):
-        p[0] = "%s" % p[1]
+    def p_evalexpr_terminal(self, p):
+        p[0] = p[1]
 
     def p_where(self, p):
         p[0] = "filter(%s)" % p[2]
