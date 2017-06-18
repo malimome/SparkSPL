@@ -40,47 +40,48 @@ class SparkTrans(BaseTrans):
         else:
             p[0] = "%s.%s" % (p[1], p[3])
 
-    def p_statement_table(self, p):
+    def p_table(self, p):
         p[0] = "select(%s)" % p[2]
 
-    def p_statement_eval(self, p):
-        p[0] = "withColumn(%s)" % p[2]
+    def p_eval(self, p):
+        p[0] = "withColumn(%s,%s)" % (p[2],p[4])
 
-    def p_statement_evalst(self, p):
-        p[0] = "%s" % p[1]
+    def p_evalexpr_terminal(self, p):
+        p[0] = p[1]
 
-    def p_statement_where(self, p):
+    def p_where(self, p):
         p[0] = "filter(%s)" % p[2]
 
-    def p_statement_condition(self, p):
+    def p_condition(self, p):
         p[0] = "%s" % p[1]
 
-    def p_statement_stats(self, p):
+    def p_stats(self, p):
         p[0] = "groupBy(%s).agg(%s)" % (p[4], p[2])
 
-    def p_statement_agg(self, p):
+    def p_agg(self, p):
         if len(p) < 3:
             p[0] = p[1]
         else:
             p[0] = "%s,%s" % (p[1], p[3])
         #self.arg_check(p, 3, p[1], "%s,%s" % (p[1], pi(p, 3)))
 
-    def p_statement_aggfuncexpr(self, p):
+    def p_stat_agg_term(self, p):
         if len(p) < 6:
-            p[0] = "%s(%s)" % (p[1], p[3])
+            p[0] = "%s(%s)"%(p[1], p[3])
         else:
-            p[0] = "%s(%s).alias(%s)" % (p[1], p[3], p[6])
+            p[0] = "%s(%s).alias(%s)"%(p[1], p[3], p[6])
         #self.arg_check(p, 6, "%s(%s)" % (p[1], p[3]), "%s(%s).alias(%s)" % (p[1], p[3], pi(p, 6)))
 
-    def p_statement_aggfunc(self, p):
-        p[0] = p[1]
 
-    def p_statement_argstats(self, p):
+    def p_field_list_comma(self, p):
         p[0] = ",".join([p[i] for i in range(1, len(p), 2)])
+
+    def p_field_list_space(self, p):
+        p[0] = '%s,%s'%(p[2],p[1])
 
     def p_expression_name(self, p):
         try:
-            p[0] = '"' + p[1] + '"'
+            p[0] =  p[1]
         except LookupError:
             print("Undefined name '%s'" % p[1])
             p[0] = 0

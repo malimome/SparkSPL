@@ -1,9 +1,6 @@
 import sys
-from ply.cpp import literals
-from math import nan
 from basetrans import SparkTrans
 
-#sys.path.insert(0, "../..")
 if sys.version_info[0] >= 3:
     raw_input = input
 
@@ -64,10 +61,6 @@ class Calc(Parser):
 
     RESERVED = {
         "stats": "STATS",
-        "min": "MIN",
-        "max": "MAX",
-        "avg": "AVG",
-        "std": "STD",
         "by": "BY",
         "as": "AS",
         "table": "TABLE",
@@ -88,6 +81,8 @@ class Calc(Parser):
     t_NE = r'!='
     t_IDENT = r'=='
 
+    Statsfunctions = ('avg','c','count','dc','distinct_count','earliest','estdc','estdc_error','exactperc<int>','first','last','latest','list','max','median','min','mode','p<int>','perc<int>','range','stdev','stdevp','sum','sumsq','upperperc<int>','values','var','varp')
+
     def t_FLOAT(self,t):
         r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
         try:
@@ -104,7 +99,6 @@ class Calc(Parser):
         except ValueError:
             print("Integer value too large %s" % t.value)
             t.value = 0
-        # print "parsed number %s" % repr(t.value)
         return t
 
     def t_NAME(self, t):
@@ -113,7 +107,6 @@ class Calc(Parser):
         t.type = Calc.RESERVED.get(t.value, 'NAME')
         return t
 
-    #t_ignore = " \t"
 
     def t_newline(self, t):
         r'\n+'
@@ -122,6 +115,7 @@ class Calc(Parser):
     def t_error(self, t):
         print("Illegal character '%s'" % t.value[0])
         t.lexer.skip(1)
+
 
     start = "statement"
 
@@ -137,54 +131,62 @@ class Calc(Parser):
 
     def p_table(self, p):
         """ command : TABLE field-list """
-        Calc.trans.p_statement_table(p)
+        Calc.trans.p_table(p)
 
     def p_eval(self, p):
-        """ command : EVAL evalst """
-        Calc.trans.p_statement_eval(p)
+        """ command : EVAL NAME '=' evalexpr """
+        Calc.trans.p_eval(p)
 
-    def p_evalst(self, p):
-        """evalst : field-list"""
-        Calc.trans.p_statement_evalst(p)
+    def p_evalexpr_arithmetic(self, p):
+       """ evalexpr : evalexpr '+' evalexpr
+                    | evalexpr '-' evalexpr
+                    | evalexpr '/' evalexpr
+                    | evalexpr '*' evalexpr """
+       p[0] = '%s%s%s'% (p[1],p[2],p[3])
+
+    def p_evalexpr_group(self, p):
+       """ evalexpr : '(' evalexpr ')' """
+       p[0] = '(%s)'%p[2]
+
+    def p_evalexpr_terminal(self, p):
+        """evalexpr : NAME 
+                    | FLOAT 
+                    | NUMBER """
+        Calc.trans.p_evalexpr_terminal(p)
 
     def p_where(self, p):
         """ command : WHERE conditionalst"""
-        Calc.trans.p_statement_where(p)
+        Calc.trans.p_where(p)
 
     def p_condition(self, p):
         """ conditionalst : field-list """
-        Calc.trans.p_statement_condition(p)
+        Calc.trans.p_condition(p)
 
     def p_stats(self, p):
         """command : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
-        Calc.trans.p_statement_stats(p)
+        Calc.trans.p_stats(p)
 
     def p_stats_clause(self, p):
         """ stats-agg-terms : stats-agg-terms ',' stats-agg-term 
                             | stats-agg-term """
-        Calc.trans.p_statement_agg(p)
+        Calc.trans.p_agg(p)
 
     def p_stat_agg_term(self, p):
-        """ stats-agg-term : stats-function '(' expr ')' AS expr
-                           | stats-function '(' expr ')' """
-        Calc.trans.p_statement_aggfuncexpr(p)
-
-    def p_statement_stats_function(self, p):
-        """stats-function : MIN
-                    | MAX
-                    | AVG
-                    | STD """
-        Calc.trans.p_statement_aggfunc(p)
+        """ stats-agg-term : NAME '(' expr ')' AS NAME
+                           | NAME '(' expr ')' """
+        if p[1] not in Calc.Statsfunctions:
+           sys.exit('Unknow stats function >> %s <<'%p[1])  
+        Calc.trans.p_stat_agg_term(p)
 
     def p_field_list_comma(self, p):
         """field-list : field-list ',' NAME
                       | NAME """
-        Calc.trans.p_statement_argstats(p)
+        Calc.trans.p_field_list_comma(p)
 
     def p_field_list_space(self,p):
         """ field-list : field-list NAME """
-        p[0] = '%s,%s'%(p[2],p[1])
+        Calc.trans.p_field_list_space(p)
 
     def p_expression_name(self, p):
         'expr : NAME'
@@ -202,5 +204,5 @@ if __name__ == '__main__':
     ret = calc.run("""index 
     | table a1, a2
     | stats max(a1) as a11, avg(a2) as a21 by a5, a6 
-    | eval a5""")
+    | eval a5 = ((r1))*(2.3+(r2)) """)
     print(ret)
