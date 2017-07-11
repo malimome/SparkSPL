@@ -56,20 +56,72 @@ class Calc(Parser):
         'NUMBER', 'FLOAT',
         'GE', 'LE', 'NE', 'IDENT', 'AND', 'OR', 'XOR'
     ]
+    
+    evalGenFunctions = {
+        "coalesce": "COALESCE",
+        "tonumber": "TONUMBER",
+        "tostring": "TOSTRING",
+        "typeof": "typeof",
+    }
 
-    evalFunctions = {
+    #cidrmatch, commands, exact, exp, 
+    #ifnull, isbool, isint, isnotnull, isnull, isnum, isstr, ln, log, max, md5, min, mvappend, mvcount, mvindex, mvfilter, mvjoin, mvrange, mvzip, null, nullif, pi, round, sha1, sha256, sha512, sigfig, spath, sqrt, validate
+    evalBinFunctions = {
         "if": "IF",
         "case": "CASE",
+    }
+
+    evalNumFunctions = {
         "pow": "POW",
         "log": "LOG",
         "abs": "ABS",
         "floor": "FLOOR",
         "random": "RANDOM",
-        "trip": "TRIM",
-        "upper": "UPPER"
-    #abs, case, ceil, ceiling, cidrmatch, coalesce, commands, exact, exp, floor,
-    #if , ifnull, isbool, isint, isnotnull, isnull, isnum, isstr, len, like, ln, log, lower, ltrim, match, max, md5, min, mvappend, mvcount, mvindex, mvfilter, mvjoin, mvrange, mvzip, now, null, nullif, pi, pow, random, relative_time, replace, round, rtrim, searchmatch, sha1, sha256, sha512, sigfig, spath, split, sqrt, strftime, strptime, substr, time, tonumber, tostring, trim, typeof, upper, urldecode, validate
+        "ceil": "CEIL",
+        "ceiling": "CEILING",
+        "substr": "SUBSTR",
+        "entropy": "ENTROPY",
+        "searchmatch": "SEARCHMATCH",
     }
+
+    evalStrFunctions = {
+        "trim": "TRIM",
+        "ltrim": "LTRIM",
+        "rtrim": "RTRIM",
+        "upper": "UPPER",
+        "lower": "LOWER",
+        "like": "LIKE",
+        "replace": "REPLACE",
+        "urlencode": "URLENCODE",
+        "split": "SPLIT",
+        "match": "MATCH",
+        "len": "LEN",
+    }
+
+    evalDTFunctions = {
+        "strptime": "STRPTIME",
+        "strftime": "STRFTIME",
+        "time": "TIME",
+        "now": "NOW",
+        "relative_time": "RELATIVE_TIME",
+    }
+
+    evalMVFunctions = {
+    }
+
+    evalCrptFunctions = {
+    }
+
+
+    evalFunctions = {}
+    evalFunctions.update(evalGenFunctions)
+    evalFunctions.update(evalBinFunctions)
+    evalFunctions.update(evalNumFunctions)
+    evalFunctions.update(evalStrFunctions)
+    evalFunctions.update(evalDTFunctions)
+    evalFunctions.update(evalMVFunctions)
+    evalFunctions.update(evalCrptFunctions)
+
 
     RESERVED = {
         "stats": "STATS",
