@@ -252,7 +252,9 @@ class Calc(Parser):
 
     def p_evalexpr_binary(self, p):
        """ evalexpr : evalexpr GE evalexpr 
-                    | evalexpr LE evalexpr 
+                    | evalexpr LE evalexpr
+                    | evalexpr '<' evalexpr
+                    | evalexpr '>' evalexpr
                     | evalexpr NE evalexpr 
                     | evalexpr IDENT evalexpr 
                     | evalexpr AND evalexpr 
@@ -347,5 +349,5 @@ if __name__ == '__main__':
     ret = calc.run("""index 
     | table a1, a2
     | stats max(a1) as a11, avg(a2) as a21 by a5, a6 
-    | eval a5 = ((r1))*(2.3+(r2)+if(1, 2, 3)) """)
+    | eval a5 = ((r1))*(2.3+(r2)+if(1, if(10<1, 100+1, 8), 3)) """)
     print(ret)

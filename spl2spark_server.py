@@ -1,7 +1,9 @@
 from flask import Flask, request
-from flask_restplus import Resource, Api as BaseApi, fields
+from flask_restplus import Resource, Api as BaseApi, fields, cors
 from job_mgm import JobMgm
 from sched_mgm import SchedMgm
+from sample_data import gen_data
+
 
 class Api(BaseApi):
     def _register_doc(self, app_or_blueprint):
@@ -18,6 +20,15 @@ api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spar
 jb = JobMgm()
 sc = SchedMgm()
 
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    return response
+
+
 @api.route('/')
 class Index(Resource):
     @api.doc('project_info')
@@ -30,6 +41,14 @@ class Index(Resource):
             "docs": "goto /doc for the api documentation"
         }
         return result
+
+
+@api.route('/sample/count/<int:count>')
+class Gen(Resource):
+    @api.doc('Sample data')
+    #@cors.crossdomain(origin='*')
+    def get(self, count):
+        return gen_data(count)
 
 
 @api.route('/search/<string:search>/start/<int:start>/end/<int:end>')
