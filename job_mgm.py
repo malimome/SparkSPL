@@ -2,6 +2,11 @@ import uuid
 import time
 import storage as st
 from sample_data import gen_data
+from sparkcontroller.sparkcontroller import SparkController, SparkControllerLivy
+#import csv
+#from io import StringIO
+import json
+from parser.parser import Calc
 
 
 class JobMgm:
@@ -11,6 +16,29 @@ class JobMgm:
 
     def all_jobs(self):
         return self.jobs
+
+    def post_job(self, search):
+        if not search.startswith("index"):
+            return ""
+        calc = Calc()
+        spsearch = calc.run(search)
+        source = 'val df = spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
+        output = 'toJSON.collect().foreach(println)'
+        #sc = SparkController()
+        sc = SparkControllerLivy()
+        result = sc.post_search("%s\n%s.%s" % (source, spsearch, output))
+        rdw = result['output']['data']['text/plain']
+        rdw = "[" + rdw.replace("\n", ",") + "]"
+        data = json.loads(rdw)
+        #rdw = rdw[rdw.strip().find('\n') + 1:].strip()
+        #data = csv.DictReader(StringIO(rdw))
+        metadata = {"x": "ctx", "y1": "aval", "y2": "mxval"}
+        context = {
+            'search': search,
+            'result': result,
+            'data': data,
+        }
+
 
     def add_job(self, search, start, end):
         job_id = str(uuid.uuid1())
