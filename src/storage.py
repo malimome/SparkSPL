@@ -7,7 +7,7 @@ class Storage:
 
 
 class FileStorage:
-    CURDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
+    CURDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../static")
 
     def __init__(self, name):
         self.file = "%s/%s" % (FileStorage.CURDIR, name)

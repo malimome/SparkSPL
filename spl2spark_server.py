@@ -1,8 +1,9 @@
-from flask import Flask, request
-from flask_restplus import Resource, Api as BaseApi, fields, cors
-from job_mgm import JobMgm
-from sched_mgm import SchedMgm
-from sample_data import gen_data
+from flask import Flask
+from flask_restplus import Resource, Api as BaseApi, fields
+from src.job_mgm import JobMgm
+from src.sched_mgm import SchedMgm
+
+from src.sample_data import gen_data
 
 
 class Api(BaseApi):

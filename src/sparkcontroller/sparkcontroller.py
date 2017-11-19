@@ -1,5 +1,6 @@
-from sparkcontroller.zp import Zp
-from sparkcontroller.livy import Livy
+from src.sparkcontroller.zp import Zp
+
+from src.sparkcontroller.livy import Livy
 
 
 class SparkController(object):

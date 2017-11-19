@@ -1,5 +1,7 @@
 import unittest
-from sparser.parser import Calc
+
+from src.sparser.parser import Calc
+
 
 class TestParser(unittest.TestCase):
 

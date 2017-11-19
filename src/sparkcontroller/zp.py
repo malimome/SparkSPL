@@ -1,5 +1,4 @@
-import sparkcontroller.webreq as wr
-import json
+from src import sparkcontroller as wr
 
 
 class Zp:

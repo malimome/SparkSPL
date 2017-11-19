@@ -1,5 +1,7 @@
 import unittest
-from sparkcontroller import sparkcontroller
+
+from src.sparkcontroller import sparkcontroller
+
 
 class TestLivy(unittest.TestCase):
 

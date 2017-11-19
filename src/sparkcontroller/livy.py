@@ -1,6 +1,6 @@
-import sparkcontroller.webreq as wr
-import json
 import time
+
+from src import sparkcontroller as wr
 
 
 class Livy:
@@ -14,7 +14,7 @@ class Livy:
         data = {'kind': 'spark'}
         r = wr.post_req(Livy.LVURL + '/sessions', data=None, json=data, header=Livy.headers)
         self.session = Livy.LVURL + r.headers['location']
-        self.session = "http://localhost:8998/sessions/1"
+        #self.session = "http://localhost:8998/sessions/0"
         print(self.session)
         while r.json()['state'] != 'idle':
             time.sleep(2)
