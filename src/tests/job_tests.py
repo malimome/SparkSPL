@@ -1,13 +1,14 @@
 import unittest
 
-from src.jobs import JobMgm
+from src.jobs import Jobs
 
 
 class TestJob(unittest.TestCase):
 
     def test_postjob(self):
-        jm = JobMgm()
-        jm.post_job("index")
+        jm = Jobs()
+        ctx = jm.post_job("index")
+        print(ctx)
 
 if __name__ == '__main__':
     unittest.main()

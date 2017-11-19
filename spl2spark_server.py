@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
-from src.jobs import JobMgm
+from src.jobs import Jobs
 from src.schedules import SchedMgm
 
 from src.sample_data import gen_data
@@ -18,7 +18,7 @@ class Api(BaseApi):
 
 app = Flask(__name__)
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
-jb = JobMgm()
+jb = Jobs()
 sc = SchedMgm()
 
 
@@ -66,7 +66,7 @@ class Jobs(Resource):
     @api.doc('Get list of jobs')
     def get(self):
         """ get list of all jobs """
-        return jb.all_jobs()
+        return jb.get_jobs()
 
 
 @api.route('/jobs/<string:job_id>')

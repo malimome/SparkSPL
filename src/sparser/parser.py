@@ -48,7 +48,7 @@ class Parser(object):
             return yacc.parse(s)
 
 
-class Calc(Parser):
+class MQL(Parser):
 
     literals = r'+-*/%,()<>='
     tokens = [
@@ -180,7 +180,7 @@ class Calc(Parser):
     def t_NAME(self, t):
         r'[a-zA-Z_][a-zA-Z_0-9]*'
         # Check for reserved words
-        t.type = Calc.RESERVED.get(t.value, 'NAME')
+        t.type = MQL.RESERVED.get(t.value, 'NAME')
         return t
 
     def t_newline(self, t):
@@ -279,7 +279,7 @@ class Calc(Parser):
                      | RANDOM '(' evalexpr ')' 
                      | TRIM '(' evalexpr ')' 
                      | UPPER '(' evalexpr ')' """
-        if p[0] not in Calc.evalFunctions:
+        if p[0] not in MQL.evalFunctions:
             raise Exception("function not defined")
         raise NotImplemented
 
@@ -313,7 +313,7 @@ class Calc(Parser):
     def p_stat_agg_term(self, p):
         """ stats-agg-term : NAME '(' expr ')' AS NAME
                            | NAME '(' expr ')' """
-        if p[1] not in Calc.Statsfunctions:
+        if p[1] not in MQL.Statsfunctions:
            sys.exit('Unknow stats function >> %s <<'%p[1])  
         if len(p) < 6:
             p[0] = "%s(%s)"%(p[1], p[3])
@@ -344,7 +344,7 @@ class Calc(Parser):
             print("Syntax error at EOF")
 
 if __name__ == '__main__':
-    calc = Calc()
+    calc = MQL()
     # calc.run("stats min(f1) as mf1 max(f2) as mf2, values(f3) as f3s by f4, f5")
     ret = calc.run("""index 
     | table a1, a2

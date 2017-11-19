@@ -6,22 +6,22 @@ import src.storage as st
 
 from src.sample_data import gen_data
 from src.sparkcontroller.sparkcontroller import SparkControllerLivy
-from src.sparser.parser import Calc
+from src.sparser.parser import MQL
 
 
-class JobMgm:
+class Jobs:
     def __init__(self):
         self.jstorage = st.FileStorage("jobs.conf")
         self.jobs = self.jstorage.getall()
 
-    def all_jobs(self):
+    def get_jobs(self):
         return self.jobs
 
     def post_job(self, search):
         if not search.startswith("index"):
             return ""
-        calc = Calc()
-        spsearch = calc.run(search)
+        mql = MQL()
+        spsearch = mql.run(search)
         source = 'val df = spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
         output = 'toJSON.collect().foreach(println)'
         #sc = SparkController()
@@ -38,7 +38,7 @@ class JobMgm:
             'result': result,
             'data': data,
         }
-
+        return context
 
     def add_job(self, search, start, end):
         job_id = str(uuid.uuid1())
@@ -76,6 +76,9 @@ class JobMgm:
             "errors": None,
             "data": gen_data(100)
         }
+
+    def stop_job(self, job_id):
+        pass
 
     def del_job(self, job_id):
         return self.jstorage.delete(job_id)

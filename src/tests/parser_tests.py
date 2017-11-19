@@ -1,12 +1,12 @@
 import unittest
 
-from src.sparser.parser import Calc
+from src.sparser.parser import MQL
 
 
 class TestParser(unittest.TestCase):
 
     def test_postjob(self):
-        cl = Calc()
+        cl = MQL()
         ret = cl.run("""index 
             | table a1, a2
             | stats max(a1) as a11, avg(a2) as a21 by a5, a6 

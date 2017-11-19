@@ -1,6 +1,6 @@
 import time
 
-from src import sparkcontroller as wr
+from src.sparkcontroller import webreq as wr
 
 
 class Livy:
