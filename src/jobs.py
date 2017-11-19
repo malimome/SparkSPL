@@ -11,7 +11,7 @@ from src.sparser.parser import Calc
 
 class JobMgm:
     def __init__(self):
-        self.jstorage = st.FileStorage("Jobs")
+        self.jstorage = st.FileStorage("jobs.conf")
         self.jobs = self.jstorage.getall()
 
     def all_jobs(self):

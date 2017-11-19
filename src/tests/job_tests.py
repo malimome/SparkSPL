@@ -1,6 +1,6 @@
 import unittest
 
-from src.job_mgm import JobMgm
+from src.jobs import JobMgm
 
 
 class TestJob(unittest.TestCase):

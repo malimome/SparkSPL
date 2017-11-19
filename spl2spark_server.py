@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
-from src.job_mgm import JobMgm
-from src.sched_mgm import SchedMgm
+from src.jobs import JobMgm
+from src.schedules import SchedMgm
 
 from src.sample_data import gen_data
 
