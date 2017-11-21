@@ -26,6 +26,7 @@ class SparkControllerLivy(object):
     @staticmethod
     def post_search(search):
         l = Livy()
+        l.init_livy()
         r = l.post_query(search)
-        return(l.get_result(r.headers['location']))
+        return(l.get_result(r))
 

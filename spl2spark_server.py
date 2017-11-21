@@ -20,6 +20,7 @@ app = Flask(__name__)
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
 jb = Jobs()
 sc = SchedMgm()
+# TODO create a user session and tie Livy sessions to it.
 
 
 @app.after_request
@@ -58,7 +59,8 @@ class Search(Resource):
     def get(self, search, start, end):
         """ run a query and add it as job """
         job = jb.add_job(search, start, end)
-        return job
+        ret = jb.post_job(search)
+        return ret
 
 
 @api.route('/jobs')

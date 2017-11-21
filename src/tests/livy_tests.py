@@ -1,14 +1,22 @@
 import unittest
 
-from src.sparkcontroller import sparkcontroller
+from src.sparkcontroller import livy
 
 
 class TestLivy(unittest.TestCase):
 
-    def test_postjob(self):
-        sc = sparkcontroller.SparkControllerLivy()
-        ret = sc.post_search("""val textFile = sc.textFile("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")
-                    textFile.collect().foreach(println)""")
+    def test_post_query(self):
+        sc = livy.Livy()
+        sc.init_livy()
+        ret = sc.post_query()
+        r = sc.get_result(ret)
+        print(r)
+
+    def test_initlivy(self):
+        return
+        sc = livy.Livy()
+        #sc.create_session()
+        ret = sc.init_livy()
         print(ret)
 
 if __name__ == '__main__':
