@@ -77,25 +77,25 @@ class MQL(Parser):
         "abs": "ABS",
         "floor": "FLOOR",
         "random": "RANDOM",
-        "ceil": "CEIL",
-        "ceiling": "CEILING",
-        "substr": "SUBSTR",
-        "entropy": "ENTROPY",
-        "searchmatch": "SEARCHMATCH",
+        #"ceil": "CEIL",
+        #"ceiling": "CEILING",
+        #"substr": "SUBSTR",
+        #"entropy": "ENTROPY",
+        #"searchmatch": "SEARCHMATCH",
     }
 
     evalStrFunctions = {
         "trim": "TRIM",
-        "ltrim": "LTRIM",
-        "rtrim": "RTRIM",
+        #"ltrim": "LTRIM",
+        #"rtrim": "RTRIM",
         "upper": "UPPER",
-        "lower": "LOWER",
-        "like": "LIKE",
-        "replace": "REPLACE",
-        "urlencode": "URLENCODE",
-        "split": "SPLIT",
-        "match": "MATCH",
-        "len": "LEN",
+        #"lower": "LOWER",
+        #"like": "LIKE",
+        #"replace": "REPLACE",
+        #"urlencode": "URLENCODE",
+        #"split": "SPLIT",
+        #"match": "MATCH",
+        #"len": "LEN",
     }
 
     evalDTFunctions = {
@@ -114,13 +114,13 @@ class MQL(Parser):
 
 
     evalFunctions = {}
-    evalFunctions.update(evalGenFunctions)
+    #evalFunctions.update(evalGenFunctions)
     evalFunctions.update(evalBinFunctions)
     evalFunctions.update(evalNumFunctions)
     evalFunctions.update(evalStrFunctions)
-    evalFunctions.update(evalDTFunctions)
-    evalFunctions.update(evalMVFunctions)
-    evalFunctions.update(evalCrptFunctions)
+    #evalFunctions.update(evalDTFunctions)
+    #evalFunctions.update(evalMVFunctions)
+    #evalFunctions.update(evalCrptFunctions)
 
 
     RESERVED = {
@@ -215,7 +215,7 @@ class MQL(Parser):
 
     def p_eval(self, p):
         """ command : EVAL NAME '=' evalexpr """
-        p[0] = "withColumn(%s,%s)" % (p[2],p[4])
+        p[0] = "withColumn(\"%s\",%s)" % (p[2],p[4])
 
     def p_lookup(self, p):
         """ command : LOOKUP NAME """
@@ -291,6 +291,7 @@ class MQL(Parser):
         """evalexpr : NAME 
                     | FLOAT 
                     | NUMBER """
+        #TODO check NAME and add double qoute
         p[0] = p[1]
 
     def p_where(self, p):
@@ -316,18 +317,22 @@ class MQL(Parser):
         if p[1] not in MQL.Statsfunctions:
            sys.exit('Unknow stats function >> %s <<'%p[1])  
         if len(p) < 6:
-            p[0] = "%s(%s)"%(p[1], p[3])
+            p[0] = "%s(\"%s\")"%(p[1], p[3])
         else:
-            p[0] = "%s(%s).alias(%s)"%(p[1], p[3], p[6])
+            p[0] = "%s(\"%s\").alias(\"%s\")"%(p[1], p[3], p[6])
 
     def p_field_list_comma(self, p):
         """field-list : field-list ',' NAME
                       | NAME """
-        p[0] = ",".join([p[i] for i in range(1, len(p), 2)])
+        if len(p) < 3:
+            p[0] = "\"%s\"" % p[1]
+        else:
+            p[0] = p[1] + ", \"%s\"" % p[3]
+        #p[0] = ",".join([p[i] for i in range(1, len(p), 2)])
 
     def p_field_list_space(self,p):
         """ field-list : field-list NAME """
-        p[0] = '%s,%s'%(p[2],p[1])
+        p[0] = '%s,\"%s\"'%(p[2],p[1])
 
     def p_expression_name(self, p):
         'expr : NAME'

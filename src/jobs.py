@@ -22,11 +22,13 @@ class Jobs:
             return ""
         mql = MQL()
         spsearch = mql.run(search)
-        source = 'val df = spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
-        output = 'toJSON.collect().foreach(println)'
-        #sc = SparkController()
+        #TODO fix this part of the code, needs cleanup and new class
+        if spsearch[:2] == "df": spsearch=spsearch[2:]
+        source = 'spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
+        output = '.toJSON.collect().foreach(println)'
         sc = SparkControllerLivy()
-        result = sc.post_search("%s\n%s.%s" % (source, spsearch, output))
+        search = "%s%s%s" % (source, spsearch, output)
+        result = sc.post_search(search)
         rdw = result['output']['data']['text/plain']
         rdw = "[" + rdw.replace("\n", ",") + "]"
         data = json.loads(rdw)

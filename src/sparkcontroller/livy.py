@@ -10,7 +10,8 @@ class Livy:
     idles = set()
 
     def __init__(self):
-        self.session = None
+        self.session_url = ""
+        self.session_id = None
 
     @staticmethod
     def init_livy():
@@ -22,21 +23,23 @@ class Livy:
             Livy.sessions[session["id"]] = session
             if session["state"] == "idle":
                 Livy.idles.add(session["id"])
+        print(Livy.sessions)
+        print(Livy.idles)
 
     @staticmethod
     def create_session():
         data = {'kind': 'spark'}
         r = wr.post_req(Livy.LVURL + '/sessions', data=None, json=data, header=Livy.headers)
-        session = Livy.LVURL + r.headers['location']
-        return session
+        session_id = r.headers['location']
+        return session_id
         #self.session = "http://localhost:8998/sessions/0"
 
     @staticmethod
-    def wait_session_idle(session):
-        r = wr.get_req(session, header=Livy.headers).json()
+    def wait_session_idle(session_url):
+        r = wr.get_req(session_url, header=Livy.headers).json()
         while r['state'] != 'idle':
             time.sleep(2)
-            r = wr.get_req(session, header=Livy.headers).json()
+            r = wr.get_req(session_url, header=Livy.headers).json()
         return r
 
     def get_free_session(self):
@@ -45,10 +48,12 @@ class Livy:
             session_url = Livy.LVURL + "/sessions/%d" % session_id
             session = Livy.sessions[session_id]
         else:
-            session_url = Livy.create_session()
+            session_id = Livy.create_session()
+            session_url = Livy.LVURL + "/sessions/%d" % session_id
             session = Livy.wait_session_idle(session_url)
             Livy.sessions[session["id"]] = session
-        self.session = session
+        self.session_id = session_id
+        self.session_url = session_url
         return session_url
 
     def post_query(self, search='spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv").toJSON.collect()'):
@@ -64,11 +69,17 @@ class Livy:
         while r.json()['state'] != 'available':
             time.sleep(2)
             r = wr.get_req(statement_url, header=Livy.headers)
+        #TODO do session management on a thread
+        session = self.wait_session_idle(self.session_url)
+        Livy.idles.add(session["id"])
+        Livy.sessions[session["id"]] = session
+        print(Livy.sessions)
+        print(Livy.idles)
         return r.json()
 
-    def delete_session(self, session_url):
+    def delete_session(self):
         #session_url = Livy.LVURL + "/sessions/0"
-        wr.delete_req(session_url, header=Livy.headers)
+        wr.delete_req(self.session_url, header=Livy.headers)
 
 
 if __name__ == '__main__':
