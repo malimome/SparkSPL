@@ -28,18 +28,27 @@ class Livy:
 
     @staticmethod
     def create_session():
-        data = {'kind': 'spark'}
+        data = {
+            'kind': 'spark', 'proxyUser': 'user',
+            'driverCores': 2, 'executorCores': 1,
+            #'driverMemory': '', 'executorMemory': ''
+        }
         r = wr.post_req(Livy.LVURL + '/sessions', data=None, json=data, header=Livy.headers)
-        session_id = r.headers['location']
+        session_id = r.json()["id"]
         return session_id
         #self.session = "http://localhost:8998/sessions/0"
 
     @staticmethod
+    def get_session(session_url):
+        r = wr.get_req(session_url, header=Livy.headers)
+        return r.json()
+
+    @staticmethod
     def wait_session_idle(session_url):
-        r = wr.get_req(session_url, header=Livy.headers).json()
+        r = Livy.get_session(session_url)
         while r['state'] != 'idle':
             time.sleep(2)
-            r = wr.get_req(session_url, header=Livy.headers).json()
+            r = Livy.get_session(session_url)
         return r
 
     def get_free_session(self):

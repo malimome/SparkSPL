@@ -48,15 +48,14 @@ class Index(Resource):
 @api.route('/sample/count/<int:count>')
 class Gen(Resource):
     @api.doc('Sample data')
-    #@cors.crossdomain(origin='*')
     def get(self, count):
         return gen_data(count)
 
 
-@api.route('/search/<string:search>/start/<int:start>/end/<int:end>')
+@api.route('/jobs/<string:search>/start/<int:start>/end/<int:end>')
 class Search(Resource):
     @api.doc('Search Api')
-    def get(self, search, start, end):
+    def post(self, search, start, end):
         """ run a query and add it as job """
         job = jb.add_job(search, start, end)
         ret = jb.post_job(search)
