@@ -28,5 +28,5 @@ class SparkControllerLivy(object):
         l = Livy()
         l.init_livy()
         r = l.post_query(search)
-        return(l.get_result(r))
+        return l.get_result(r)
 

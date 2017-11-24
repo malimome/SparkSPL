@@ -18,6 +18,7 @@ class Parser(object):
     def __init__(self, **kw):
         self.debug = kw.get('debug', 0)
         self.names = {}
+        self.meta = {}
         try:
             modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" \
                       + self.__class__.__name__
@@ -129,7 +130,7 @@ class MQL(Parser):
         "as": "AS",
         "table": "TABLE",
         "where": "WHERE",
-        "index": "INDEX",
+        "source": "SOURCE",
         "eval": "EVAL",
         "lookup": "LOOKUP",
         "fit": "FIT",
@@ -194,12 +195,13 @@ class MQL(Parser):
     start = "statement"
 
     def p_statement(self, p):
-        """statement : INDEX SEP commands
-                     | INDEX """
-        if len(p) < 3:
-            p[0] = "df"
+        """statement : SOURCE '=' NAME SEP commands
+                     | SOURCE '=' NAME """
+        if len(p) < 5:
+            p[0] = ""
         else:
-            p[0] = "df.%s" % p[3]
+            p[0] = ".%s" % p[5]
+        self.meta["source"] = p[3]
 
     def p_commands(self, p):
         """commands : commands SEP command
@@ -292,7 +294,10 @@ class MQL(Parser):
                     | FLOAT 
                     | NUMBER """
         #TODO check NAME and add double qoute
-        p[0] = p[1]
+        if type(p[1]) == type(""):
+            p[0] = "col(" + p[1] + ")"
+        else:
+            p[0] = p[1]
 
     def p_where(self, p):
         """ command : WHERE evalexpr """

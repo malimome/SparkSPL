@@ -2,6 +2,7 @@ from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
 from src.jobs import Jobs
 from src.schedules import SchedMgm
+from src.sources import Source
 
 from src.sample_data import gen_data
 
@@ -20,6 +21,7 @@ app = Flask(__name__)
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
 jb = Jobs()
 sc = SchedMgm()
+sr = Source()
 # TODO create a user session and tie Livy sessions to it.
 
 
@@ -126,6 +128,43 @@ class SchedId(Resource):
     def delete(self, sched_id):
         """ delete scheduled report"""
         sc.del_sched(sched_id)
+
+
+source_post = api.model('Resource', {
+    'name': fields.String(description="Source name"),
+    'description': fields.String(description="The description of the source"),
+    'query': fields.String(description="The query to get the raw data")
+})
+
+
+@api.route('/sources')
+class Sources(Resource):
+    @api.doc('Get list of sources')
+    def get(self):
+        """ get list of all sources """
+        return sr.sources
+
+    @api.expect(source_post)
+    def post(self):
+        """ create a new source """
+        return sr.add_source(api.payload)
+
+
+@api.route('/sources/<string:src_id>')
+class SourceID(Resource):
+    @api.doc('Get source by id')
+    def get(self, src_id):
+        """ Get scheduled report by id """
+        src = sr.get_source(src_id)
+        return src
+
+    @api.expect(source_post)
+    def update(self, src_id):
+        sr.update_source(src_id, api.payload)
+
+    def delete(self, src_id):
+        """ delete a source """
+        sr.del_source(src_id)
 
 if __name__ == '__main__':
     app.run(debug=True)

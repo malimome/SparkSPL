@@ -7,25 +7,21 @@ import src.storage as st
 
 class Source:
     def __init__(self):
-        self.jstorage = st.FileStorage("sources.conf")
-        self.sources = self.jstorage.getall()
+        self.sstorage = st.FileStorage("sources.conf")
+        self.sources = self.sstorage.getall()
 
     def sources(self):
         return self.sources
 
-    def post_source(self, search):
-        pass
-
-    def add_source(self, name, type, path):
-        source_id = str(uuid.uuid1())
+    def add_source(self, payload):
+        source_id = payload['name']
         submit_time = int(time.time())
         source = {
-            "name": name,
-            "type": type,
-            "path": path,
+            "desc": payload['description'],
+            "query": payload['query'],
             "submit_time": submit_time,
         }
-        self.sources = self.jstorage.add(source_id, source)
+        self.sources = self.sstorage.add(source_id, source)
         return {
             "source_id": source_id,
             "source": source
@@ -35,7 +31,10 @@ class Source:
         source = self.sources[source_id]
         return source
 
-    def del_job(self, source_id):
-        return self.jstorage.delete(source_id)
+    def update_source(self, source_id, payload):
+        self.sstorage.update(source_id, payload)
+
+    def del_source(self, source_id):
+        return self.sstorage.delete(source_id)
 
 

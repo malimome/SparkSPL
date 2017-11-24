@@ -5,8 +5,7 @@ import uuid
 import src.storage as st
 
 from src.sample_data import gen_data
-from src.sparkcontroller.sparkcontroller import SparkControllerLivy
-from src.sparser.parser import MQL
+from src.search import Search
 
 
 class Jobs:
@@ -18,28 +17,8 @@ class Jobs:
         return self.jobs
 
     def post_job(self, search):
-        if not search.startswith("index"):
-            return ""
-        mql = MQL()
-        spsearch = mql.run(search)
-        #TODO fix this part of the code, needs cleanup and new class
-        if spsearch[:2] == "df": spsearch=spsearch[2:]
-        source = 'spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
-        output = '.toJSON.collect().foreach(println)'
-        sc = SparkControllerLivy()
-        search = "%s%s%s" % (source, spsearch, output)
-        result = sc.post_search(search)
-        rdw = result['output']['data']['text/plain']
-        rdw = "[" + rdw.replace("\n", ",") + "]"
-        data = json.loads(rdw)
-        #rdw = rdw[rdw.strip().find('\n') + 1:].strip()
-        #data = csv.DictReader(StringIO(rdw))
-        metadata = {"x": "ctx", "y1": "aval", "y2": "mxval"}
-        context = {
-            'search': search,
-            'result': result,
-            'data': data,
-        }
+        sch = Search()
+        context = sch.process_search(search)
         return context
 
     def add_job(self, search, start, end):
