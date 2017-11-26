@@ -6,18 +6,23 @@ from src.sparser.parser import MQL
 class TestParser(unittest.TestCase):
 
     def test_postjob(self):
-        search = """index 
-            | table a1
-            | stats max(b) by d """
-            #| eval a5 = ((r1))*(2.3+(r2)+if(1, if(10<1, 100+1, 8), 3)) """
-
-        source = 'val df = spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
-        output = 'toJSON.collect().foreach(println)'
+        searches = {
+            'source=a': '',
+            'source=a | table a1': '.select("a1")',
+            'source=a | stats max(b) as c, sum(f) as g by d': '.groupBy("d").agg(max("b").alias("c"),sum("f").alias("g"))',
+            'source=a | eval a5 = (r1)*(2.3+r2+if(1, if(10<1, 100+1, 8), 3))': '.withColumn("a5",(col("r1"))*(2.3+col("r2")+100+1))',
+            'source=a | eval a5 = "6trg"': '.withColumn("a5","6trg")',
+            'source=a | where a5 == "6trg"': '.filter(col("a5") == "6trg")',
+        }
 
         cl = MQL()
-        spsearch = cl.run(search)
-        ret = "%s\n%s.%s" % (source, spsearch, output)
-        print(ret)
+        for s in searches:
+            a = searches[s]
+            spsearch = cl.run(s)
+            #print(spsearch)
+            self.assertEqual('a', cl.meta["source"])
+            self.assertEqual(a, spsearch)
+
 
 if __name__ == '__main__':
     unittest.main()

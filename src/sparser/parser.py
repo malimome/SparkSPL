@@ -53,7 +53,7 @@ class MQL(Parser):
 
     literals = r'+-*/%,()<>='
     tokens = [
-        'NAME', 'SEP',
+        'NAME', 'LITERAL', 'SEP',
         'NUMBER', 'FLOAT',
         'GE', 'LE', 'NE', 'IDENT', 'AND', 'OR', 'XOR'
     ]
@@ -184,6 +184,11 @@ class MQL(Parser):
         t.type = MQL.RESERVED.get(t.value, 'NAME')
         return t
 
+    def t_LITERAL(self, t):
+        r'["][a-zA-Z_0-9]*["]'
+        t.type = MQL.RESERVED.get(t.value, 'LITERAL')
+        return t
+
     def t_newline(self, t):
         r'\n+'
         t.lexer.lineno += t.value.count("\n")
@@ -290,14 +295,14 @@ class MQL(Parser):
        p[0] = '(%s)'%p[2]
 
     def p_evalexpr_terminal(self, p):
-        """evalexpr : NAME 
+        """evalexpr : LITERAL
                     | FLOAT 
                     | NUMBER """
-        #TODO check NAME and add double qoute
-        if type(p[1]) == type(""):
-            p[0] = "col(" + p[1] + ")"
-        else:
-            p[0] = p[1]
+        p[0] = p[1]
+
+    def p_evalexpr_terminal_name(self, p):
+        """evalexpr : NAME """
+        p[0] = "col(\"" + p[1] + "\")"
 
     def p_where(self, p):
         """ command : WHERE evalexpr """
@@ -320,11 +325,13 @@ class MQL(Parser):
         """ stats-agg-term : NAME '(' expr ')' AS NAME
                            | NAME '(' expr ')' """
         if p[1] not in MQL.Statsfunctions:
-           sys.exit('Unknow stats function >> %s <<'%p[1])  
+           sys.exit('Unknow stats function >> %s <<'%p[1])
+        #TODO is this right,
+        # replace the func with the right spark one
         if len(p) < 6:
-            p[0] = "%s(\"%s\")"%(p[1], p[3])
+            p[0] = "%s(%s)"%(p[1], p[3])
         else:
-            p[0] = "%s(\"%s\").alias(\"%s\")"%(p[1], p[3], p[6])
+            p[0] = "%s(%s).alias(\"%s\")"%(p[1], p[3], p[6])
 
     def p_field_list_comma(self, p):
         """field-list : field-list ',' NAME
@@ -342,10 +349,14 @@ class MQL(Parser):
     def p_expression_name(self, p):
         'expr : NAME'
         try:
-            p[0] = p[1]
+            p[0] = "\"" + p[1] + "\""
         except LookupError:
             print("Undefined name '%s'" % p[1])
             p[0] = 0
+
+    def p_expression_literal(self, p):
+        'expr : LITERAL'
+        p[0] = p[1]
 
     def p_error(self, p):
         if p:
