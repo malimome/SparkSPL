@@ -16,11 +16,12 @@ class Search:
 
         spsearch = mql.run(search)
         source_id = mql.meta["source"]
+        imports = mql.meta["imports"]
         source = sr.get_source(source_id)["query"]
         # 'spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
         output = 'toJSON.collect().foreach(println)'
         sc = SparkControllerLivy()
-        search = "%s%s.%s" % (source, spsearch, output)
+        search = "%s\n%s%s.%s" % (imports, source, spsearch, output)
         result = sc.post_search(search)
         rdw = result['output']['data']['text/plain']
         rdw = "[" + rdw.replace("\n", ",") + "]"

@@ -75,9 +75,15 @@ class MQL(Parser):
     evalNumFunctions = {
         "pow": "POW",
         "log": "LOG",
+        "exp": "EXP",
         "abs": "ABS",
+        "sin": "SIN",
+        "cos": "COS",
+        "tan": "TAN",
+        #"cotan": "COTAN",
         "floor": "FLOOR",
-        "random": "RANDOM",
+        "rand": "RAND",
+        "randn": "RANDN"
         #"ceil": "CEIL",
         #"ceiling": "CEILING",
         #"substr": "SUBSTR",
@@ -200,16 +206,17 @@ class MQL(Parser):
     start = "statement"
 
     def p_statement(self, p):
-        """statement : SOURCE '=' NAME SEP commands
+        """ statement : SOURCE '=' NAME SEP commands
                      | SOURCE '=' NAME """
         if len(p) < 5:
             p[0] = ""
         else:
             p[0] = ".%s" % p[5]
         self.meta["source"] = p[3]
+        self.meta["imports"] = "val sqlContext = new org.apache.spark.sql.SQLContext(sc)"
 
     def p_commands(self, p):
-        """commands : commands SEP command
+        """ commands : commands SEP command
                     | command """
         if len(p) < 3:
             p[0] = p[1]
@@ -267,11 +274,13 @@ class MQL(Parser):
                     | evalexpr AND evalexpr 
                     | evalexpr OR evalexpr 
                     | evalexpr XOR evalexpr """
+       if p[2] == "!=" or p[2] == "==":
+           p[2] = p[2] + "="
        p[0] = '%s %s %s' % (p[1], p[2], p[3])
 
     def p_evalexpr_func_if(self, p):
         """ evalexpr : IF '(' evalexpr ',' evalexpr ',' evalexpr ')' """
-        p[0] = p[5] if p[3] else p[7]
+        p[0] = "when(%s, %s).otherwise(%s)" % (p[3], p[5], p[7])
 
     def p_evalexpr_func_case(self, p):
         """ evalexpr : CASE '(' evalexpr ',' evalexpr ')' """
@@ -279,37 +288,53 @@ class MQL(Parser):
         raise NotImplemented
 
     def p_evalexpr_func_1arg(self, p):
-        """ evalexpr : POW '(' evalexpr ')' 
-                     | LOG '(' evalexpr ')' 
-                     | ABS '(' evalexpr ')' 
-                     | FLOOR '(' evalexpr ')' 
-                     | RANDOM '(' evalexpr ')' 
-                     | TRIM '(' evalexpr ')' 
-                     | UPPER '(' evalexpr ')' """
-        if p[0] not in MQL.evalFunctions:
-            raise Exception("function not defined")
-        raise NotImplemented
+        """ evalexpr : POW '(' func-args ')'
+                     | LOG '(' func-args ')'
+                     | ABS '(' func-args ')'
+                     | SIN '(' func-args ')'
+                     | COS '(' func-args ')'
+                     | TAN '(' func-args ')'
+                     | EXP '(' func-args ')'
+                     | FLOOR '(' func-args ')'
+                     | RAND '(' func-args ')'
+                     | RANDN '(' func-args ')'
+                     | TRIM '(' func-args ')'
+                     | UPPER '(' func-args ')' """
+        if p[1] not in MQL.evalFunctions:
+            raise Exception("function %s not defined" % p[1])
+        p[0] = "%s(%s)" % (p[1], p[3])
+
+    def p_evalexpr_func_args(self, p):
+        """ func-args : func-args ',' evalexpr
+                     | evalexpr
+                     | """
+        if len(p) < 2:
+            p[0] = ''
+        elif len(p) < 3:
+            p[0] = p[1]
+        else:
+            p[0] = "%s,%s" % (p[1], p[3])
 
     def p_evalexpr_group(self, p):
-       """ evalexpr : '(' evalexpr ')' """
-       p[0] = '(%s)'%p[2]
+        """ evalexpr : '(' evalexpr ')' """
+        p[0] = '(%s)' % p[2]
 
     def p_evalexpr_terminal(self, p):
-        """evalexpr : LITERAL
+        """ evalexpr : LITERAL
                     | FLOAT 
                     | NUMBER """
         p[0] = p[1]
 
     def p_evalexpr_terminal_name(self, p):
-        """evalexpr : NAME """
-        p[0] = "col(\"" + p[1] + "\")"
+        """ evalexpr : NAME """
+        p[0] = "$\"" + p[1] + "\""
 
     def p_where(self, p):
         """ command : WHERE evalexpr """
         p[0] = "filter(%s)" % p[2]
 
     def p_stats(self, p):
-        """command : STATS stats-agg-terms BY field-list"""
+        """ command : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
         p[0] = "groupBy(%s).agg(%s)" % (p[4], p[2])
 
@@ -334,7 +359,7 @@ class MQL(Parser):
             p[0] = "%s(%s).alias(\"%s\")"%(p[1], p[3], p[6])
 
     def p_field_list_comma(self, p):
-        """field-list : field-list ',' NAME
+        """ field-list : field-list ',' NAME
                       | NAME """
         if len(p) < 3:
             p[0] = "\"%s\"" % p[1]
@@ -347,7 +372,7 @@ class MQL(Parser):
         p[0] = '%s,\"%s\"'%(p[2],p[1])
 
     def p_expression_name(self, p):
-        'expr : NAME'
+        ' expr : NAME '
         try:
             p[0] = "\"" + p[1] + "\""
         except LookupError:
@@ -355,7 +380,7 @@ class MQL(Parser):
             p[0] = 0
 
     def p_expression_literal(self, p):
-        'expr : LITERAL'
+        ' expr : LITERAL '
         p[0] = p[1]
 
     def p_error(self, p):
