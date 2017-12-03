@@ -18,7 +18,7 @@ class FileStorage:
             with open(self.file, "r") as fp:
                 self.items = json.load(fp)
         except:
-            pass
+            raise Exception("Problem reading Jobs")
         return self.items
 
     def get(self, id):

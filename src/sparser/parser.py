@@ -214,6 +214,7 @@ class MQL(Parser):
             p[0] = ".%s" % p[5]
         self.meta["source"] = p[3]
         self.meta["imports"] = "val sqlContext = new org.apache.spark.sql.SQLContext(sc)"
+        self.meta["udfs"] = ""
 
     def p_commands(self, p):
         """ commands : commands SEP command
@@ -228,8 +229,20 @@ class MQL(Parser):
         p[0] = "select(%s)" % p[2]
 
     def p_eval(self, p):
-        """ command : EVAL NAME '=' evalexpr """
-        p[0] = "withColumn(\"%s\",%s)" % (p[2],p[4])
+        """ command : EVAL eval-state """
+        p[0] = p[2]
+
+    def p_eval_statement(self, p):
+        """ eval-state : eval-state ',' eval-term
+                       | eval-term """
+        if len(p) < 3:
+            p[0] = p[1]
+        else:
+            p[0] = "%s.%s" % (p[1], p[3])
+
+    def p_eval_term(self, p):
+        """ eval-term : NAME '=' evalexpr """
+        p[0] = "withColumn(\"%s\",%s)" % (p[1], p[3])
 
     def p_lookup(self, p):
         """ command : LOOKUP NAME """
@@ -323,7 +336,7 @@ class MQL(Parser):
         """ evalexpr : LITERAL
                     | FLOAT 
                     | NUMBER """
-        p[0] = p[1]
+        p[0] = "lit(%s)" % p[1]
 
     def p_evalexpr_terminal_name(self, p):
         """ evalexpr : NAME """

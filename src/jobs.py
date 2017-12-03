@@ -3,8 +3,6 @@ import time
 import uuid
 
 import src.storage as st
-
-from src.sample_data import gen_data
 from src.search import Search
 
 
@@ -55,7 +53,7 @@ class Jobs:
     def get_job_result(self, job_id):
         return {
             "errors": None,
-            "data": gen_data(100)
+            "data": None #TODO
         }
 
     def stop_job(self, job_id):

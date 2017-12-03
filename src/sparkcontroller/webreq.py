@@ -1,11 +1,18 @@
 import requests
 
 
+#TODO Create connection pool
 def get_req(url, data=None, header=None):
     print("%s %s"%("GET", url))
-    resp = requests.get(url, params=data, headers=header)
-    if resp.status_code not in [200, 201]:
-        raise Exception("error")
+    resp = None
+    try:
+        resp = requests.get(url, params=data, headers=header)
+        if resp.status_code not in [200, 201]:
+            raise ReferenceError(resp.content)
+    except ConnectionError as ex:
+        raise ex
+    except AttributeError as ex:
+        raise ReferenceError("Corrupted response!")
     return resp
 
 

@@ -54,14 +54,6 @@ class Printer:
         print(text)
 
 
-def message_user(message, priority=conf.LEVELS.INFO, forceprint=False):
-    if priority == conf.LEVELS.INFO:
-        header = "Info"
-    else:
-        header = "Error"
-    print(header + ": " + message)
-
-
 def debug_log(e_str, show=conf.DEBUG, tag=""):
     """
     :param show: controls showing in "console"
@@ -119,45 +111,4 @@ def error_log(e, priority=conf.LEVELS.ERROR, show=False, location=""):
         logger.debug(msg)
     else:
         logger.error(msg)
-        if show:
-            message_user(msg, priority)
-
-    # filename = "ERR"
-    # line_num = 0
-    # func_name = "ERR"
-    # exc_type, exc_obj, exc_tb = sys.exc_info()
-    # if exc_tb:
-    #     filename, line_num, func_name, text = traceback.extract_tb(exc_tb)[-1]
-    #     filename = os.path.basename(filename)
-    # logger.error("(type->%s) %s: %s (%s->%s->%s)" % (exc_type, code, msg,
-    #               filename, func_name, line_num))
-    # if conf.DEBUG:
-    #     logger.info(show_frame(2, 2+conf.STACK_LEV))
-    # if show:
-    #     message_user(msg, priority)
     return True
-
-
-#TODO have a function for user specific errors
-#Add a display message member that is shown to users which does not log the internal behaviour of the client.
-class SCException(Exception):
-    message = "Unknown Exception"
-    code = 500
-
-    def __init__(self, message="", obj=None):
-        if message != "":
-            self.message = message
-        if obj is not None:
-            self.message = "%s: %s"% (str(obj), self.message)
-
-    def __str__(self):
-        return self.message
-
-
-class SCGeneralException(SCException):
-    def __init__(self, e):
-        self.message = "General Exception: {}".format(str(e))
-
-
-class SCGeneralFirstRunException(SCGeneralException):
-    pass

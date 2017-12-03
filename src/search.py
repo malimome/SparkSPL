@@ -17,13 +17,19 @@ class Search:
         spsearch = mql.run(search)
         source_id = mql.meta["source"]
         imports = mql.meta["imports"]
+        udfs = mql.meta["udfs"]
         source = sr.get_source(source_id)["query"]
         # 'spark.read.format("csv").option("header", "true").option("mode", "DROPMALFORMED").csv("hdfs://127.0.0.1:9000/indexes/test/*/*.csv")'
         output = 'toJSON.collect().foreach(println)'
         sc = SparkControllerLivy()
-        search = "%s\n%s%s.%s" % (imports, source, spsearch, output)
+        search = "%s\n%s\n%s%s.%s" % (imports, udfs, source, spsearch, output)
         result = sc.post_search(search)
-        rdw = result['output']['data']['text/plain']
+        if 'output' not in result:
+            raise Exception("No data!")
+        output = result['output']
+        if output['status'] != 'ok':
+            raise Exception("%s" % output['evalue'] if 'evalue' in output else "Error in query")
+        rdw = output['data']['text/plain']
         rdw = "[" + rdw.replace("\n", ",") + "]"
         data = json.loads(rdw)
         #rdw = rdw[rdw.strip().find('\n') + 1:].strip()

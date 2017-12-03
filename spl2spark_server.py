@@ -3,8 +3,9 @@ from flask_restplus import Resource, Api as BaseApi, fields
 from src.jobs import Jobs
 from src.schedules import SchedMgm
 from src.sources import Source
-
-from src.sample_data import gen_data
+import settings
+from flask_restplus_patched._http import HTTPStatus
+from src.utils import http_exceptions as he
 
 
 class Api(BaseApi):
@@ -18,6 +19,10 @@ class Api(BaseApi):
 
 
 app = Flask(__name__)
+#app.config['RESTPLUS_VALIDATE'] = settings.RESTPLUS_VALIDATE
+#app.config['SERVER_NAME'] = settings.FLASK_SERVER_NAME
+#app.config['SWAGGER_UI_DOC_EXPANSION'] = settings.RESTPLUS_SWAGGER_UI_DOC_EXPANSION
+#app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
 jb = Jobs()
 sc = SchedMgm()
@@ -30,10 +35,13 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers.add('server', 'MyApp')
     return response
 
 
 @api.route('/')
+@api.response(200, 'App is successfully loaded')
+@api.response(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
 class Index(Resource):
     @api.doc('project_info')
     def get(self):
@@ -47,29 +55,30 @@ class Index(Resource):
         return result
 
 
-@api.route('/sample/count/<int:count>')
-class Gen(Resource):
-    @api.doc('Sample data')
-    def get(self, count):
-        return gen_data(count)
-
-
 @api.route('/jobs/<string:search>/start/<int:start>/end/<int:end>')
 class Search(Resource):
     @api.doc('Search Api')
     def post(self, search, start, end):
         """ run a query and add it as job """
-        job = jb.add_job(search, start, end)
-        ret = jb.post_job(search)
+        ret = {}
+        try:
+            job = jb.add_job(search, start, end)
+            ret = jb.post_job(search)
+        except Exception:
+            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
         return ret
 
 
 @api.route('/jobs')
 class Jobs(Resource):
     @api.doc('Get list of jobs')
+    #@api.marshal_with(Job) bring job's model here
     def get(self):
         """ get list of all jobs """
-        return jb.get_jobs()
+        try:
+            return jb.get_jobs()
+        except Exception:
+            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 @api.route('/jobs/<string:job_id>')
@@ -77,7 +86,10 @@ class JobId(Resource):
     @api.doc('Get job id status')
     def get(self, job_id):
         """ Get job's status and result by id """
-        job = jb.get_job(job_id)
+        try:
+            job = jb.get_job(job_id)
+        except Exception:
+            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
         jobres = dict(job)
         if job["status"] == "finished":
             jobres = dict(job)
@@ -86,7 +98,10 @@ class JobId(Resource):
 
     def delete(self, job_id):
         """ Delete a job """
-        jb.del_job(job_id)
+        try:
+            jb.del_job(job_id)
+        except Exception:
+            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 sched_post = api.model('Resource', {
