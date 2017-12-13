@@ -22,11 +22,14 @@ class SparkController(object):
 
 
 class SparkControllerLivy(object):
+    def __init__(self):
+        self.lv = Livy()
+        self.lv.init_livy()
 
-    @staticmethod
-    def post_search(search):
-        l = Livy()
-        l.init_livy()
-        r = l.post_query(search)
-        return l.get_result(r)
+    def post_search(self, search):
+        r = self.lv.post_query(search)
+        return r
+
+    def get_result(self, r):
+        return self.lv.get_result(r)
 

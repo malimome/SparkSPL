@@ -82,8 +82,8 @@ class Livy:
         session = self.wait_session_idle(self.session_url)
         Livy.idles.add(session["id"])
         Livy.sessions[session["id"]] = session
-        print(Livy.sessions)
-        print(Livy.idles)
+        #print(Livy.sessions)
+        #print(Livy.idles)
         return r.json()
 
     def delete_session(self):

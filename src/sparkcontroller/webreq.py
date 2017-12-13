@@ -20,7 +20,7 @@ def post_req(url, data=None, json=None, header=None):
     print("%s %s" % ("POST", url))
     resp = requests.post(url, data=data, json=json, headers=header)
     if resp.status_code not in [200, 201]:
-        raise Exception("error")
+        raise Exception(str(resp))
     return resp
 
 
@@ -28,6 +28,6 @@ def delete_req(url, data=None, header=None):
     print("%s %s" % ("DEL", url))
     resp = requests.delete(url, headers=header)
     if resp.status_code not in [200, 201]:
-        raise Exception("error")
+        raise Exception(str(resp))
     return resp
 
