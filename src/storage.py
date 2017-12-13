@@ -16,7 +16,10 @@ class FileStorage:
     def getall(self):
         try:
             with open(self.file, "r") as fp:
-                self.items = json.load(fp)
+                content = fp.read()
+                if content == "":
+                    return self.items
+                self.items = json.loads(content)
         except:
             raise Exception("Problem reading Jobs")
         return self.items
