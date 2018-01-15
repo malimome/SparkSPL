@@ -20,6 +20,12 @@ class Source:
             "desc": payload['description'],
             "query": payload['query'],
             "submit_time": submit_time,
+            "type": "ELASTIC | SQL | NOSQL | HADOOP",
+            "host": "localhost",
+            "port": "port",
+            "connection_string": "str",
+            "username": "username",
+            "password": "pass"
         }
         self.sources = self.sstorage.add(source_id, source)
         return {

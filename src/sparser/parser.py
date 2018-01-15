@@ -19,6 +19,7 @@ class Parser(object):
         self.debug = kw.get('debug', 0)
         self.names = {}
         self.meta = {}
+        self.meta["caches"] = ["df"]
         try:
             modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" \
                       + self.__class__.__name__
@@ -35,10 +36,28 @@ class Parser(object):
                   debugfile=self.debugfile,
                   tabmodule=self.tabmodule)
 
+    def post_process(self, ret):
+        if len(self.meta["caches"]) == 1:
+            return ret
+        rets = ret.split("\n")
+        caches = self.meta["caches"]
+        newret = ""
+        for ind in range(len(caches)):
+            if ind < len(caches) -1:
+                cache = caches[ind+1]
+            else:
+                cache = "df_out"
+            ret = rets[ind].replace(".{%s}" % cache, "")
+            newret += 'val {cache} = {df}{ret}\n'.format(cache=cache,
+                                                         ret=ret, df=caches[ind])
+        self.meta["caches"] = ["df"]
+        return newret
+
     def run(self, inputg = None):
         if inputg is not None:
             ret = yacc.parse(inputg)
-            return ret
+            newret = self.post_process(ret)
+            return newret
         while 1:
             try:
                 s = raw_input('calc > ')
@@ -83,12 +102,15 @@ class MQL(Parser):
         #"cotan": "COTAN",
         "floor": "FLOOR",
         "rand": "RAND",
-        "randn": "RANDN"
+        "randn": "RANDN",
+        #"round": "ROUND",
+        #"correlation": "CORELATION", # df.stat.corr(NAME, NAME)
+        #approxQuantile
+        #crosstab
+        #freqItems
         #"ceil": "CEIL",
         #"ceiling": "CEILING",
-        #"substr": "SUBSTR",
         #"entropy": "ENTROPY",
-        #"searchmatch": "SEARCHMATCH",
     }
 
     evalStrFunctions = {
@@ -102,7 +124,15 @@ class MQL(Parser):
         #"urlencode": "URLENCODE",
         #"split": "SPLIT",
         #"match": "MATCH",
+        #"contains": "CONTAINS",
+        # "substr": "SUBSTR",
+        # "searchmatch": "SEARCHMATCH",
+        # "regexp_replace"
+        # "regexp_extract
+        # translate - a version of replace
         #"len": "LEN",
+        #initcap
+
     }
 
     evalDTFunctions = {
@@ -110,6 +140,11 @@ class MQL(Parser):
         "strftime": "STRFTIME",
         "time": "TIME",
         "now": "NOW",
+        #current_date() , current_timestamp()
+        # date_sub date_add
+        # datediff, to_date, months_between
+        # to_date(unix_timestamp(lit("2017-12-11"), dateFormat).cast("timestamp"))
+        # to_timestamp(date, ‘yyyy-dd-MM’),
         "relative_time": "RELATIVE_TIME",
     }
 
@@ -137,7 +172,15 @@ class MQL(Parser):
         "table": "TABLE",
         "where": "WHERE",
         "source": "SOURCE",
+        "rename": "RENAME",
+        "head": "HEAD",
+        "top": "TOP",
         "eval": "EVAL",
+        #"describe": "DESCRIBE", #df,describe calcs stats on numbers
+        "in": "IN",
+        "cache": "CACHE",
+        "fillnull": "FILLNULL",
+        "value": "VALUE",
         "lookup": "LOOKUP",
         "fit": "FIT",
         "apply": "APPLY",
@@ -162,9 +205,45 @@ class MQL(Parser):
     t_OR = r'or'
     t_XOR = r'xor'
 
-    Statsfunctions = ('avg', 'c', 'count', 'dc', 'distinct_count', 'earliest', 'estdc', 'estdc_error',
-                      'exactperc<int>', 'first', 'last', 'latest', 'list', 'max', 'median', 'min', 'mode', 'p<int>',
-                      'perc<int>', 'range', 'stdev', 'stdevp', 'sum', 'sumsq', 'upperperc<int>', 'values', 'var', 'varp')
+    Statsfunctions = {
+        'avg': 'avg',
+        'c': 'count',
+        'count': 'count',
+        'dc': 'countDistinct',
+        'countDistinct': 'countDistinct',
+        'approx_count_distinct': 'approx_count_distinct',
+        'distinct_count': 'countDistinct',
+        'earliest': 'min',
+        'estdc': 'approx_count_distinct',
+        #'estdc_error': 'dc',
+        'exactperc<int>': 'perc',
+        'first': 'first',
+        'last': 'last',
+        'latest': 'max',
+        'list': 'collect_list',
+        'max': 'max',
+        'median': 'median',
+        'min': 'min',
+        'mean': 'mean',
+        'mode': 'mode',
+        'p<int>': 'p',
+        'perc<int>': 'perc',
+        'range': 'range',
+        'stdev': 'stddev',
+        'sumdc': 'sumDistinct',
+        'sumDistinct': 'sumDistinct',
+        'stdevp': 'stddev_pop',
+        'skewness': 'skewness',
+        'sum': 'sum',
+        'upperperc<int>': 'perc',
+        'values': 'collect_set',
+        'kurtosis': 'kurtosis',
+        'var': 'var_samp',
+        'varp': 'var_pop',
+        'corr': 'corr', #correlation for two columns
+        'covar_pop': 'covar_pop',
+        'covar_samp': 'covar_samp',
+    }
 
     def t_FLOAT(self,t):
         r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
@@ -207,12 +286,19 @@ class MQL(Parser):
 
     def p_statement(self, p):
         """ statement : SOURCE '=' NAME SEP commands
-                     | SOURCE '=' NAME """
-        if len(p) < 5:
+                     | SOURCE '=' NAME
+                     | SOURCE '=' NAME '(' LITERAL ')' SEP commands
+                     | SOURCE '=' NAME '(' LITERAL ')' """
+        # TODO the ifs doesn't look good
+        if len(p) == 4 or len(p) == 7:
             p[0] = ""
+        elif len(p) == 6 or len(p) == 9:
+            p[0] = ".%s" % p[len(p)-1]
         else:
-            p[0] = ".%s" % p[5]
+            pass
         self.meta["source"] = p[3]
+        if len(p) == 7 or len(p) == 9:
+            self.meta["src_param"] = p[5]
         self.meta["imports"] = "val sqlContext = new org.apache.spark.sql.SQLContext(sc)"
         self.meta["udfs"] = ""
 
@@ -226,7 +312,38 @@ class MQL(Parser):
 
     def p_table(self, p):
         """ command : TABLE field-list """
+        # TODO can rename be done here as well
         p[0] = "select(%s)" % p[2]
+
+    #def p_join(self, p):
+    #    """ command : JOIN 'type' = NAME NAME [statement]"""
+    #    pass
+    # How to stop it DF here? Should it go to top?
+
+    def p_rename(self, p):
+        """ command : RENAME field-list-rename """
+        p[0] = p[2]
+
+    def p_cache(self, p):
+        """ command : CACHE NAME """
+        #TODO cache the DF here and use after
+        p[0] = "{%s}\n" % p[2]
+        self.meta["caches"].append(p[2])
+
+    #def p_window(self, p):
+    #    """ command : WINDOW command-params NAME """
+    #    # TODO similar to bin
+    #    pass
+
+    def p_fillnull(self, p):
+        """ command : FILLNULL VALUE '=' evalexpr field-list """
+        # TODO fillnull - should accept both string and numbers
+        raise NotImplemented
+
+    def p_head(self, p):
+        """ command : HEAD NUMBER
+                    | TOP NUMBER """
+        p[0] = ".take(%d)" % p[2]
 
     def p_eval(self, p):
         """ command : EVAL eval-state """
@@ -300,19 +417,24 @@ class MQL(Parser):
         p[0] = 1
         raise NotImplemented
 
+    def p_evalexpr_func_in(self, p):
+        """ evalexpr : NAME IN '(' func-args ')' """
+        # TODO check spark syntax
+        p[0] = ".in(%s, %s)" % (p[1], p[4])
+
     def p_evalexpr_func_1arg(self, p):
         """ evalexpr : POW '(' func-args ')'
-                     | LOG '(' func-args ')'
-                     | ABS '(' func-args ')'
-                     | SIN '(' func-args ')'
-                     | COS '(' func-args ')'
-                     | TAN '(' func-args ')'
-                     | EXP '(' func-args ')'
-                     | FLOOR '(' func-args ')'
+                     | LOG '(' evalexpr ')'
+                     | ABS '(' evalexpr ')'
+                     | SIN '(' evalexpr ')'
+                     | COS '(' evalexpr ')'
+                     | TAN '(' evalexpr ')'
+                     | EXP '(' evalexpr ')'
+                     | FLOOR '(' evalexpr ')'
                      | RAND '(' func-args ')'
-                     | RANDN '(' func-args ')'
-                     | TRIM '(' func-args ')'
-                     | UPPER '(' func-args ')' """
+                     | RANDN '(' evalexpr ')'
+                     | TRIM '(' evalexpr ')'
+                     | UPPER '(' evalexpr ')' """
         if p[1] not in MQL.evalFunctions:
             raise Exception("function %s not defined" % p[1])
         p[0] = "%s(%s)" % (p[1], p[3])
@@ -376,13 +498,22 @@ class MQL(Parser):
                       | NAME """
         if len(p) < 3:
             p[0] = "\"%s\"" % p[1]
+        elif len(p) < 4:
+            p[0] = p[1] + ", \"%s\"" % p[2]
         else:
             p[0] = p[1] + ", \"%s\"" % p[3]
         #p[0] = ",".join([p[i] for i in range(1, len(p), 2)])
 
-    def p_field_list_space(self,p):
-        """ field-list : field-list NAME """
-        p[0] = '%s,\"%s\"'%(p[2],p[1])
+    def p_field_list_rename(self, p):
+        """ field-list-rename : field-list-rename ',' NAME AS NAME
+                      | field-list-rename NAME AS NAME
+                      | NAME AS NAME """
+        if len(p) < 5:
+            p[0] = "withColumnRename(%s, %s)"
+        elif len(p) < 6:
+            p[0] = "%s.withColumnRename(%s, %s)" % (p[1], p[2], p[4])
+        else:
+            p[0] = p[0] = "%s.withColumnRename(%s, %s)" % (p[1], p[3], p[5])
 
     def p_expression_name(self, p):
         ' expr : NAME '

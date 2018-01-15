@@ -16,12 +16,13 @@ class FileStorage:
     def getall(self):
         try:
             with open(self.file, "r") as fp:
-                content = fp.read()
-                if content == "":
-                    return self.items
-                self.items = json.loads(content)
-        except:
-            raise Exception("Problem reading Jobs")
+                self.items = json.load(fp)
+        except ValueError as ex:
+            print("Warning: reading empty config! %s" % self.file)
+            return self.items
+        except FileNotFoundError as ex:
+            print("Warning: no config file found! %s" % self.file)
+            return self.items
         return self.items
 
     def get(self, id):
