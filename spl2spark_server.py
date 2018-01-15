@@ -2,6 +2,7 @@ from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
 from src.jobs import Jobs
 from src.schedules import SchedMgm
+from src.dashboards import DashboardMgm
 from src.sources import Source
 import settings
 from flask_restplus_patched._http import HTTPStatus
@@ -26,6 +27,7 @@ app = Flask(__name__)
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
 jb = Jobs()
 sc = SchedMgm()
+dshb = DashboardMgm()
 sr = Source()
 # TODO create a user session and tie Livy sessions to it.
 
@@ -104,11 +106,13 @@ class JobId(Resource):
             he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
-sched_post = api.model('Resource', {
+sched_post = api.model('Schedule', {
     'name': fields.String(description="Report name"),
     'description': fields.String(description="The description of the report"),
     'query': fields.String(description="The query to run for this report"),
     'cron': fields.String(description="Cron style scheduling trigger string"),
+    'earliest': fields.String(description="The earliest time to fetch data."),
+    'latest': fields.String(description="The latest time to fetch data."),
     'action_email': fields.String(description="List of emails (comma separated)"),
     'script': fields.String(description="script file name to run"),
     'throttling': fields.String(description="Throttling string")
@@ -145,7 +149,7 @@ class SchedId(Resource):
         sc.del_sched(sched_id)
 
 
-source_post = api.model('Resource', {
+source_post = api.model('Source', {
     'name': fields.String(description="Source name"),
     'description': fields.String(description="The description of the source"),
     'query': fields.String(description="The query to get the raw data")
@@ -180,6 +184,44 @@ class SourceID(Resource):
     def delete(self, src_id):
         """ delete a source """
         sr.del_source(src_id)
+
+
+dash_post = api.model('Dashboard', {
+    'name': fields.String(description="Dashboard name"),
+    'description': fields.String(description="The description of the dashboard"),
+    'xml': fields.String(description="The xml to run for this dashboard")
+})
+
+
+@api.route('/dashboards')
+class Dashboard(Resource):
+    @api.doc('Get list of dashboards')
+    def get(self):
+        """ get list of all dashboards """
+        return dshb.all_dashs()
+
+    @api.expect(sched_post)
+    def post(self):
+        """ create a new dashboard """
+        return dshb.add_dash(api.payload)
+
+
+@api.route('/dashboards/<string:dash_id>')
+class DashboardId(Resource):
+    @api.doc('Get dash id')
+    def get(self, dash_id):
+        """ Get scheduled report by id """
+        sched = dshb.get_dash(dash_id)
+        return sched
+
+    @api.expect(sched_post)
+    def update(self, dash_id):
+        dshb.update_dash(dash_id, api.payload)
+
+    def delete(self, dash_id):
+        """ delete dashboard"""
+        dshb.del_dash(dash_id)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
