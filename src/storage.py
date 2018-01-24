@@ -51,7 +51,7 @@ class FileStorage(Storage):
     def _put(self):
         try:
             with open(self.file, "w") as fp:
-                json.dump(self.items, fp)
+                json.dump(self.items, fp, indent=2, sort_keys=True)
         except:
             pass
 

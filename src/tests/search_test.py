@@ -6,7 +6,12 @@ class TestLivy(unittest.TestCase):
 
     def test_post_query(self):
         sc = search.Search()
-        ctx = sc.process_search("source=range1000")
+        job = {
+            "search": "source=filebeat",
+            "start": "-1d",
+            "end": "now"
+        }
+        ctx = sc.process_search(job)
         print(ctx)
 
 

@@ -27,9 +27,15 @@ class SparkControllerLivy(object):
         self.lv.init_livy()
 
     def post_search(self, search):
-        r = self.lv.post_query(search)
-        return r
+        ssn_stmt = self.lv.post_query(search)
+        return ssn_stmt
 
-    def get_result(self, r):
-        return self.lv.get_result(r)
+    def get_result(self, ssn_stmt):
+        return self.lv.get_result(ssn_stmt)
+
+    def get_result_async(self, ssn_stmt):
+        return self.lv.get_result_async(ssn_stmt)
+
+    def cleanup(self):
+        return self.lv.session_restore()
 

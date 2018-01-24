@@ -20,10 +20,10 @@ class Source:
             "desc": payload['description'],
             "query": payload['query'],
             "submit_time": submit_time,
-            "type": "ELASTIC | SQL | NOSQL | HADOOP",
+            "type": payload['type'],
             "host": "localhost",
             "port": "port",
-            "connection_string": "str",
+            "connection_string": payload['connection'],
             "username": "username",
             "password": "pass"
         }

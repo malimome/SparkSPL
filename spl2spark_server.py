@@ -5,8 +5,8 @@ from src.schedules import SchedMgm
 from src.dashboards import DashboardMgm
 from src.sources import Source
 import settings
-from flask_restplus_patched._http import HTTPStatus
-from src.utils import http_exceptions as he
+#from flask_restplus_patched._http import HTTPStatus
+#from src.utils import http_exceptions as he
 
 
 class Api(BaseApi):
@@ -43,7 +43,7 @@ def after_request(response):
 
 @api.route('/')
 @api.response(200, 'App is successfully loaded')
-@api.response(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
+#@api.response(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
 class Index(Resource):
     @api.doc('project_info')
     def get(self):
@@ -57,7 +57,7 @@ class Index(Resource):
         return result
 
 
-@api.route('/jobs/<string:search>/start/<int:start>/end/<int:end>')
+@api.route('/jobs/<string:search>/earliest/<string:start>/latest/<string:end>')
 class Search(Resource):
     @api.doc('Search Api')
     def post(self, search, start, end):
@@ -65,10 +65,11 @@ class Search(Resource):
         ret = {}
         try:
             job = jb.add_job(search, start, end)
-            ret = jb.post_job(search)
+            jb.post_job(job)
         except Exception:
-            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return ret
+            raise
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        return job
 
 
 @api.route('/jobs')
@@ -80,7 +81,26 @@ class Jobs(Resource):
         try:
             return jb.get_jobs()
         except Exception:
-            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+            raise
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+
+@api.route('/jobs/<string:job_id>/async')
+class JobIdAsync(Resource):
+    @api.doc('Get job id status')
+    def get(self, job_id):
+        """ Get job's status and result by id """
+        try:
+            job, result = jb.get_job_async(job_id)
+        except Exception:
+            raise
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        jobres = dict(job)
+        if job["status"] == "finished":
+            jobres["result"] = result
+        else:
+            jobres["result"] = {}
+        return jobres
 
 
 @api.route('/jobs/<string:job_id>')
@@ -89,13 +109,15 @@ class JobId(Resource):
     def get(self, job_id):
         """ Get job's status and result by id """
         try:
-            job = jb.get_job(job_id)
+            job, result = jb.get_job(job_id)
         except Exception:
-            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+            raise
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
         jobres = dict(job)
         if job["status"] == "finished":
-            jobres = dict(job)
-            jobres["result"] = jb.get_job_result(job_id)
+            jobres["result"] = result
+        else:
+            jobres["result"] = {}
         return jobres
 
     def delete(self, job_id):
@@ -103,7 +125,8 @@ class JobId(Resource):
         try:
             jb.del_job(job_id)
         except Exception:
-            he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+            raise
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 
 sched_post = api.model('Schedule', {
@@ -152,6 +175,8 @@ class SchedId(Resource):
 source_post = api.model('Source', {
     'name': fields.String(description="Source name"),
     'description': fields.String(description="The description of the source"),
+    'type': fields.String(description="default | elastic | hadoop | mysql | mssql | postgresql"),
+    'connection': fields.String(description="index name in the default "),
     'query': fields.String(description="The query to get the raw data")
 })
 

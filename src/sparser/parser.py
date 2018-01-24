@@ -18,7 +18,7 @@ class Parser(object):
     def __init__(self, **kw):
         self.debug = kw.get('debug', 0)
         self.names = {}
-        self.meta = {}
+        self.meta = dict()
         self.meta["caches"] = ["df"]
         try:
             modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" \
