@@ -7,61 +7,77 @@ from src.search import Search
 
 
 class Jobs:
-    def __init__(self):
-        self.jstorage = st.FileStorage("jobs.conf")
-        self.jobs = self.jstorage.getall()
-        self.sch = Search()
+    jstorage = None
+    jobs = None
+    sch = None
 
-    def get_jobs(self):
-        return self.jobs
+    @staticmethod
+    def init():
+        if Jobs.jstorage is None:
+            Jobs.jstorage = st.FileStorage("jobs.conf")
+            Jobs.jobs = Jobs.jstorage.getall()
+            Jobs.sch = Search().init()
+        return Jobs
 
-    def post_job(self, job):
-        self.sch.process_search(job)
+    @staticmethod
+    def get_jobs():
+        return Jobs.jobs
+
+    @staticmethod
+    def post_job(job):
+        Jobs.sch.process_search(job)
         # some stuff added to job
         job["status"] = "started"
-        self.jobs = self.jstorage.update(job["job_id"], job)
+        Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
         return 0
 
-    def add_job(self, search, start, end):
+    @staticmethod
+    def add_job(job_post):
         job_id = str(uuid.uuid1())
         submit_time = int(time.time())
         expiry_time = submit_time + 600
         job = {
-            "search": search,
-            "start": start,
-            "end": end,
+            "query": job_post['query'],
+            "earliest": job_post['earliest'],
+            "latest": job_post['latest'],
+            "mode": job_post['mode'],
+            "priority": job_post['priority'],
             "submit_time": submit_time,
             "expiry_time": expiry_time,
             "status": "queued",
             "progress": 0,
             "job_id": job_id
         }
-        self.jobs = self.jstorage.add(job_id, job)
+        Jobs.jobs = Jobs.jstorage.add(job_id, job)
         return job
 
-    def get_job(self, job_id):
-        job = self.jobs[job_id]
-        result = self.sch.get_search_result(job)
+    @staticmethod
+    def get_job(job_id):
+        job = Jobs.jobs[job_id]
+        result = Jobs.sch.get_search_result(job)
         job["status"] = "finished"
         job["progress"] = 100
-        self.jstorage.update(job_id, job)
+        Jobs.jstorage.update(job_id, job)
         return job, result
 
-    def get_job_async(self, job_id):
-        job = self.jobs[job_id]
-        result = self.sch.get_search_result_async(job)
+    @staticmethod
+    def get_job_async(job_id):
+        job = Jobs.jobs[job_id]
+        result = Jobs.sch.get_search_result_async(job)
         #if result["state"] == "available":
         #    job["progress"] = 100
         #else:
         #    job["progress"] = min(99, job["progress"] + 10)
-        self.jstorage.update(job_id, job)
+        Jobs.jstorage.update(job_id, job)
         return job, result
 
-    def stop_job(self, job_id):
+    @staticmethod
+    def stop_job(job_id):
         pass
 
-    def del_job(self, job_id):
-        self.jobs = self.jstorage.delete(job_id)
+    @staticmethod
+    def del_job(job_id):
+        Jobs.jobs = Jobs.jstorage.delete(job_id)
         return 0
 
 

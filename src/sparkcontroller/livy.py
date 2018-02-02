@@ -1,5 +1,4 @@
 import time
-
 from src.sparkcontroller import webreq as wr
 
 
@@ -8,10 +7,6 @@ class Livy:
     headers = {'Content-Type': 'application/json'}
     sessions = {}
     idles = set()
-
-    def __init__(self):
-        self.session_url = ""
-        self.session_id = None
 
     @staticmethod
     def init_livy():
@@ -44,6 +39,12 @@ class Livy:
         return r.json()
 
     @staticmethod
+    def get_session_log(session_id):
+        session_log_url = Livy.session_url_from_id(session_id) + "/log"
+        r = wr.get_req(session_log_url, header=Livy.headers)
+        return r.json()
+
+    @staticmethod
     def wait_session_idle(session_id):
         session_url = Livy.session_url_from_id(session_id)
         r = Livy.get_session(session_url)
@@ -52,18 +53,25 @@ class Livy:
             r = Livy.get_session(session_url)
         return r
 
-    def get_free_session(self):
+    @staticmethod
+    def create_idle_session():
+        session_id = Livy.create_session()
+        session = Livy.wait_session_idle(session_id)
+        Livy.sessions[session["id"]] = session
+        return session
+
+    @staticmethod
+    def get_free_session():
+        session_id = None
         if len(Livy.idles) != 0:
             session_id = Livy.idles.pop()
         else:
-            session_id = Livy.create_session()
-            session = Livy.wait_session_idle(session_id)
-            Livy.sessions[session["id"]] = session
-        self.session_id = session_id
+            session_id = Livy.create_idle_session()["id"]
         return session_id
 
-    def post_query(self, search):
-        session_id = self.get_free_session()
+    @staticmethod
+    def post_query(search):
+        session_id = Livy.get_free_session()
         statements_url = Livy.stmt_url_from_id(session_id)
         data = {'code': search}
         r = wr.post_req(statements_url, json=data, header=Livy.headers)
@@ -74,34 +82,48 @@ class Livy:
         stmt_id = stmt_pf[stpos+1:]
         return {"sid": session_id, "tid": stmt_id}
 
-    def get_result_async(self, ssn_stmt):
-        self.session_id = ssn_stmt["sid"]
-        statement_url = Livy.stmtid_url_from_ids(self.session_id, ssn_stmt["tid"])
+    @staticmethod
+    def get_result_async(ssn_stmt):
+        session_id = ssn_stmt["sid"]
+        statement_url = Livy.stmtid_url_from_ids(session_id, ssn_stmt["tid"])
         r = wr.get_req(statement_url, header=Livy.headers)
         result = r.json()
         # TODO do this on a thread
         if result['state'] == "available":
-            self.session_restore()
+            Livy.session_restore(ssn_stmt)
         return result
 
-    def get_result(self, ssn_stmt):
-        result = self.get_result_async(ssn_stmt)
+    @staticmethod
+    def get_result(ssn_stmt):
+        result = Livy.get_result_async(ssn_stmt)
         while result['state'] != 'available':
             time.sleep(2)
-            result = self.get_result_async(ssn_stmt)
-        self.session_restore()
+            result = Livy.get_result_async(ssn_stmt)
+        Livy.session_restore(ssn_stmt)
         return result
 
-    def session_restore(self):
-        if self.session_id in Livy.idles:
+    @staticmethod
+    def cancel_query(ssn_stmt):
+        stmt_cancel_url = Livy.stmtid_url_from_ids(ssn_stmt["sid"], ssn_stmt["tid"]) + "/cancel"
+        r = wr.post_req(stmt_cancel_url, header=Livy.headers)
+        # check the result r to see msg = "cancelled"
+        Livy.session_restore(ssn_stmt)
+        return r.json()
+
+    @staticmethod
+    def session_restore(ssn_stmt):
+        session_id = ssn_stmt["sid"]
+        if session_id in Livy.idles:
             return 0
-        session = self.wait_session_idle(self.session_id)
+        session = Livy.wait_session_idle(session_id)
         Livy.idles.add(session["id"])
         Livy.sessions[session["id"]] = session
         return 0
 
-    def delete_session(self):
-        wr.delete_req(Livy.session_url_from_id(self.session_id), header=Livy.headers)
+    @staticmethod
+    def delete_session(ssn_stmt):
+        session_id = ssn_stmt["sid"]
+        wr.delete_req(Livy.session_url_from_id(session_id), header=Livy.headers)
 
     @staticmethod
     def session_url():
@@ -121,6 +143,7 @@ class Livy:
                                                     session_id=session_id, stmt_id=stmt_id)
 
 
+"""
 if __name__ == '__main__':
     l = Livy()
     while 1:
@@ -134,3 +157,4 @@ if __name__ == '__main__':
         ret = l.get_result(r.headers['location'])
         print(ret)
     l.delete_session()
+"""

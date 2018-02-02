@@ -8,18 +8,21 @@ class Search:
     source_inits = {
         "elastic": "spark.read.format(\"org.elasticsearch.spark.sql\")"
                    ".option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\")"
-                   ".option(\"es.field.read.empty.as.null\",\"true\")"
+                   ".option(\"es.read.field.empty.as.null\",\"true\")"
                    ".option(\"es.index.read.missing.as.empty\",\"true\")"
                    ".option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\")"
                    ".option(\"es.read.field.exclude\", \"prospector,beat,tags\")"
     }
-
-    def __init__(self):
-        self.meta = None
-        self.sc = SparkControllerLivy()
+    sc = None
 
     @staticmethod
-    def build_search_string(job, query_param): #spksearch, meta, start, end):
+    def init():
+        if Search.sc is None:
+            Search.sc = SparkControllerLivy().init()
+        return Search
+
+    @staticmethod
+    def build_search_string(job, query_param):
         meta = query_param["meta"]
         sr = Source()
         source_id = meta["source"]
@@ -32,7 +35,7 @@ class Search:
             source_query = Search.source_inits[source["type"]]
             source_query += ".option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},"
             source_query += "\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
-                            % (job["start"], job["end"])
+                            % (job["earliest"], job["latest"])
             source_query += ".load(\"{index}-*\").sort(desc(\"@timestamp\"))".format(index=source_id)
 
         search_template = """
@@ -46,8 +49,9 @@ df1.toJSON.collect().foreach(println)
         search_str = search_template.format(imports=imports, udfs=udfs, input=source_query, search=query_param["spark_query"])
         return search_str
 
-    def process_search(self, job):
-        spl_search = job["search"]
+    @staticmethod
+    def process_search(job):
+        spl_search = job["query"]
         if not spl_search.startswith("source"):
             return ""
         mql = MQL()
@@ -63,30 +67,32 @@ df1.toJSON.collect().foreach(println)
         end_query = Search.build_search_string(job, query_param)
         query_param["end_query"] = end_query
 
-        r = self.sc.post_search(end_query)
+        r = Search.sc.post_search(end_query)
         job["internal_session"] = r
         return 0
 
-    def get_search_result(self, job):
+    @staticmethod
+    def get_search_result(job):
         r = job["internal_session"]
-        result = self.sc.get_result(r)
+        result = Search.sc.get_result(r)
         data = Search.prepare_output(result)
         context = {
-            'search': job["search"],
+            'query': job["query"],
             'result': result,
             'data': data,
         }
         return context
 
-    def get_search_result_async(self, job):
+    @staticmethod
+    def get_search_result_async(job):
         r = job["internal_session"]
-        result = self.sc.get_result_async(r)
+        result = Search.sc.get_result_async(r)
         context = {
             'search': job["search"],
             'result': result
         }
         if result["state"] == "available":
-            self.sc.cleanup()
+            Search.sc.cleanup(r)
             data = Search.prepare_output(result)
             context['data'] = data
         else:

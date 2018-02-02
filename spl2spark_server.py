@@ -25,7 +25,7 @@ app = Flask(__name__)
 #app.config['SWAGGER_UI_DOC_EXPANSION'] = settings.RESTPLUS_SWAGGER_UI_DOC_EXPANSION
 #app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
 api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
-jb = Jobs()
+jb = Jobs().init()
 sc = SchedMgm()
 dshb = DashboardMgm()
 sr = Source()
@@ -57,19 +57,45 @@ class Index(Resource):
         return result
 
 
-@api.route('/jobs/<string:search>/earliest/<string:start>/latest/<string:end>')
+def build_result_response(job, result):
+    jobres = dict(job)
+    if job["status"] == "finished":
+        jobres["result"] = result
+    else:
+        jobres["result"] = {}
+    return jobres
+
+
+@api.route('/jobs/<string:query>/earliest/<string:earliest>/latest/<string:latest>')
 class Search(Resource):
     @api.doc('Search Api')
-    def post(self, search, start, end):
+    def post(self, query, earliest, latest):
         """ run a query and add it as job """
-        ret = {}
+        job_post = {
+            'query': query,
+            'earliest': earliest,
+            'latest': latest,
+            'mode': 'normal',
+            'priority': 'normal'
+        }
         try:
-            job = jb.add_job(search, start, end)
-            jb.post_job(job)
+            job_ = jb.add_job(job_post)
+            jb.post_job(job_)
+            job, result = jb.get_job(job_["job_id"])
+            jb.del_job(job_["job_id"])
         except Exception:
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return job
+        return build_result_response(job, result)
+
+
+job_post = api.model('Job', {
+    'query': fields.String(description="The query to run for this report", required=True),
+    'earliest': fields.String(description="The earliest time to fetch data."),
+    'latest': fields.String(description="The latest time to fetch data."),
+    'priority': fields.String(description="Low, normal or high (medium is default)."),
+    'mode': fields.String(description="blocking or normal")
+})
 
 
 @api.route('/jobs')
@@ -84,41 +110,46 @@ class Jobs(Resource):
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-
-@api.route('/jobs/<string:job_id>/async')
-class JobIdAsync(Resource):
-    @api.doc('Get job id status')
-    def get(self, job_id):
-        """ Get job's status and result by id """
+    @api.doc('Create a new job.')
+    @api.expect(job_post)
+    def post(self):
+        """ run a query and add it as job """
+        job_ = {}
         try:
-            job, result = jb.get_job_async(job_id)
+            job_ = jb.add_job(api.payload)
+            jb.post_job(job_)
+            if api.payload["mode"] != "blocking":
+                return job_
+            job, result = jb.get_job(job_["job_id"])
+            jb.del_job(job_["job_id"])
         except Exception:
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        jobres = dict(job)
-        if job["status"] == "finished":
-            jobres["result"] = result
-        else:
-            jobres["result"] = {}
-        return jobres
+        return build_result_response(job, result)
+
+
+job_get = api.model('Job_Get', {
+    'offset': fields.Integer(description="The query to run for this report"),
+    'count': fields.Integer(description="The earliest time to fetch data."),
+    'mode': fields.String(description="blocking or normal")
+})
 
 
 @api.route('/jobs/<string:job_id>')
 class JobId(Resource):
     @api.doc('Get job id status')
+    #@api.expect(job_get)
     def get(self, job_id):
         """ Get job's status and result by id """
         try:
-            job, result = jb.get_job(job_id)
+            #if api.payload["mode"] != "blocking":
+            if False:
+                job, result = jb.get_job_async(job_id)
+            else:
+                job, result = jb.get_job(job_id)
         except Exception:
-            raise
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        jobres = dict(job)
-        if job["status"] == "finished":
-            jobres["result"] = result
-        else:
-            jobres["result"] = {}
-        return jobres
+            api.abort(404, "Server error")
+        return build_result_response(job, result)
 
     def delete(self, job_id):
         """ Delete a job """
@@ -249,4 +280,4 @@ class DashboardId(Resource):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

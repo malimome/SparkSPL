@@ -1,6 +1,7 @@
 from src.sparkcontroller.zp import Zp
-
 from src.sparkcontroller.livy import Livy
+import time
+from src.utils.threader import threaded
 
 
 class SparkController(object):
@@ -21,21 +22,46 @@ class SparkController(object):
         pass
 
 
-class SparkControllerLivy(object):
-    def __init__(self):
-        self.lv = Livy()
-        self.lv.init_livy()
+@threaded
+def get_x_idle_sessions(x):
+    stop = False
+    while(not(stop)):
+        if x <= len(Livy.idles):
+            time.sleep(30)
+            continue
+        session = Livy.create_idle_session()
+        session_id = session["id"]
+        Livy.sessions[session_id]
+        Livy.idles.add(session_id)
 
-    def post_search(self, search):
-        ssn_stmt = self.lv.post_query(search)
+
+class SparkControllerLivy(object):
+    lv = None
+    Ran = False
+
+    @staticmethod
+    def init():
+        SparkControllerLivy.lv = Livy()
+        SparkControllerLivy.lv.init_livy()
+        if SparkControllerLivy.Ran is False:
+            get_x_idle_sessions(2)
+            SparkControllerLivy.Ran = True
+        return SparkControllerLivy
+
+    @staticmethod
+    def post_search(search):
+        ssn_stmt = SparkControllerLivy.lv.post_query(search)
         return ssn_stmt
 
-    def get_result(self, ssn_stmt):
-        return self.lv.get_result(ssn_stmt)
+    @staticmethod
+    def get_result(ssn_stmt):
+        return SparkControllerLivy.lv.get_result(ssn_stmt)
 
-    def get_result_async(self, ssn_stmt):
-        return self.lv.get_result_async(ssn_stmt)
+    @staticmethod
+    def get_result_async(ssn_stmt):
+        return SparkControllerLivy.lv.get_result_async(ssn_stmt)
 
-    def cleanup(self):
-        return self.lv.session_restore()
+    @staticmethod
+    def cleanup(ssn_stmt):
+        return SparkControllerLivy.lv.session_restore(ssn_stmt)
 

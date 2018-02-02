@@ -169,6 +169,7 @@ class MQL(Parser):
         "stats": "STATS",
         "by": "BY",
         "as": "AS",
+        "count": "COUNT",
         "table": "TABLE",
         "where": "WHERE",
         "source": "SOURCE",
@@ -483,12 +484,18 @@ class MQL(Parser):
 
     def p_stat_agg_term(self, p):
         """ stats-agg-term : NAME '(' expr ')' AS NAME
-                           | NAME '(' expr ')' """
+                           | NAME '(' expr ')'
+                           | COUNT
+                           | COUNT AS NAME """
         if p[1] not in MQL.Statsfunctions:
            sys.exit('Unknow stats function >> %s <<'%p[1])
         #TODO is this right,
         # replace the func with the right spark one
-        if len(p) < 6:
+        if p[1].lower() == "count":
+            p[0] = "count()"
+        elif len(p) < 4:
+            p[0] = "count().alias(\"%s\""%(p[3])
+        elif len(p) < 6:
             p[0] = "%s(%s)"%(p[1], p[3])
         else:
             p[0] = "%s(%s).alias(\"%s\")"%(p[1], p[3], p[6])
