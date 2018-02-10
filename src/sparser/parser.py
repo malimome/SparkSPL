@@ -1,78 +1,11 @@
-import sys
-
-if sys.version_info[0] >= 3:
-    raw_input = input
-
-import ply.lex as lex
-import ply.yacc as yacc
-import os
-
-
-class Parser(object):
-    """
-    Base class for a lexer/parser that has the rules defined as methods
-    """
-    tokens = ()
-    precedence = ()
-
-    def __init__(self, **kw):
-        self.debug = kw.get('debug', 0)
-        self.names = {}
-        self.meta = dict()
-        self.meta["caches"] = ["df"]
-        try:
-            modname = os.path.split(os.path.splitext(__file__)[0])[1] + "_" \
-                      + self.__class__.__name__
-        except:
-            modname = "parser" + "_" + self.__class__.__name__
-        self.debugfile = modname + ".dbg"
-        self.tabmodule = modname + "_" + "parsetab"
-        # print self.debugfile, self.tabmodule
-
-        # Build the lexer and parser
-        lex.lex(module=self, debug=self.debug)#, optimize=True)
-        yacc.yacc(module=self,
-                  debug=self.debug,
-                  debugfile=self.debugfile,
-                  tabmodule=self.tabmodule)
-
-    def post_process(self, ret):
-        if len(self.meta["caches"]) == 1:
-            return ret
-        rets = ret.split("\n")
-        caches = self.meta["caches"]
-        newret = ""
-        for ind in range(len(caches)):
-            if ind < len(caches) -1:
-                cache = caches[ind+1]
-            else:
-                cache = "df_out"
-            ret = rets[ind].replace(".{%s}" % cache, "")
-            newret += 'val {cache} = {df}{ret}\n'.format(cache=cache,
-                                                         ret=ret, df=caches[ind])
-        self.meta["caches"] = ["df"]
-        return newret
-
-    def run(self, inputg = None):
-        if inputg is not None:
-            ret = yacc.parse(inputg)
-            newret = self.post_process(ret)
-            return newret
-        while 1:
-            try:
-                s = raw_input('calc > ')
-            except EOFError:
-                break
-            if not s:
-                continue
-            return yacc.parse(s)
+from src.sparser.parser_base import Parser
+from src.sparser.parse_source import source_query
 
 
 class MQL(Parser):
-
     literals = r'+-*/%,()<>='
     tokens = [
-        'NAME', 'LITERAL', 'SEP',
+        'NAME', 'LITERAL',
         'NUMBER', 'FLOAT',
         'GE', 'LE', 'NE', 'IDENT', 'AND', 'OR', 'XOR'
     ]
@@ -196,7 +129,6 @@ class MQL(Parser):
     tokens += RESERVED.values()
 
     # Tokens
-    t_SEP = r'\|'
     t_ignore = " \t"
     t_GE = r'>='
     t_LE = r'<='
@@ -246,6 +178,14 @@ class MQL(Parser):
         'covar_samp': 'covar_samp',
     }
 
+    def __init__(self, earliest, latest, **kw):
+        super(MQL, self).__init__(**kw)
+        #self.state = dict()
+        self.imports = set()
+        self.udfs = set()
+        self.earliest = earliest
+        self.latest = latest
+
     def t_FLOAT(self,t):
         r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
         try:
@@ -285,34 +225,16 @@ class MQL(Parser):
 
     start = "statement"
 
-    def p_statement(self, p):
-        """ statement : SOURCE '=' NAME SEP commands
-                     | SOURCE '=' NAME
-                     | SOURCE '=' NAME '(' LITERAL ')' SEP commands
+    def p_source(self, p):
+        """ statement : SOURCE '=' NAME
                      | SOURCE '=' NAME '(' LITERAL ')' """
-        # TODO the ifs doesn't look good
-        if len(p) == 4 or len(p) == 7:
-            p[0] = ""
-        elif len(p) == 6 or len(p) == 9:
-            p[0] = ".%s" % p[len(p)-1]
-        else:
-            pass
-        self.meta["source"] = p[3]
-        if len(p) == 7 or len(p) == 9:
+        p[0] = source_query(p[3], self.earliest, self.latest)
+        if len(p) == 7:
             self.meta["src_param"] = p[5]
-        self.meta["imports"] = "val sqlContext = new org.apache.spark.sql.SQLContext(sc)"
-        self.meta["udfs"] = ""
-
-    def p_commands(self, p):
-        """ commands : commands SEP command
-                    | command """
-        if len(p) < 3:
-            p[0] = p[1]
-        else:
-            p[0] = "%s.%s" % (p[1], p[3])
+        self.assign = True
 
     def p_table(self, p):
-        """ command : TABLE field-list """
+        """ statement : TABLE field-list """
         # TODO can rename be done here as well
         p[0] = "select(%s)" % p[2]
 
@@ -322,14 +244,13 @@ class MQL(Parser):
     # How to stop it DF here? Should it go to top?
 
     def p_rename(self, p):
-        """ command : RENAME field-list-rename """
+        """ statement : RENAME field-list-rename """
         p[0] = p[2]
 
     def p_cache(self, p):
-        """ command : CACHE NAME """
-        #TODO cache the DF here and use after
-        p[0] = "{%s}\n" % p[2]
-        self.meta["caches"].append(p[2])
+        """ statement : CACHE NAME """
+        self.meta["var"] = p[2]
+        p[0] = ""
 
     #def p_window(self, p):
     #    """ command : WINDOW command-params NAME """
@@ -337,17 +258,17 @@ class MQL(Parser):
     #    pass
 
     def p_fillnull(self, p):
-        """ command : FILLNULL VALUE '=' evalexpr field-list """
+        """ statement : FILLNULL VALUE '=' evalexpr field-list """
         # TODO fillnull - should accept both string and numbers
         raise NotImplemented
 
     def p_head(self, p):
-        """ command : HEAD NUMBER
+        """ statement : HEAD NUMBER
                     | TOP NUMBER """
-        p[0] = ".take(%d)" % p[2]
+        p[0] = "limit(%d)" % p[2]
 
     def p_eval(self, p):
-        """ command : EVAL eval-state """
+        """ statement : EVAL eval-state """
         p[0] = p[2]
 
     def p_eval_statement(self, p):
@@ -363,27 +284,27 @@ class MQL(Parser):
         p[0] = "withColumn(\"%s\",%s)" % (p[1], p[3])
 
     def p_lookup(self, p):
-        """ command : LOOKUP NAME """
+        """ statement : LOOKUP NAME """
         p[0] = 1
         raise NotImplemented
 
     def p_iploc(self, p):
-        """ command : IPLOC NAME """
+        """ statement : IPLOC NAME """
         p[0] = 1
         raise NotImplemented
 
     def p_geoloc(self, p):
-        """ command : GEOLOC NAME """
+        """ statement : GEOLOC NAME """
         p[0] = 1
         raise NotImplemented
 
     def p_fit(self, p):
-        """ command : FIT NAME """
+        """ statement : FIT NAME """
         p[0] = 1
         raise NotImplemented
 
     def p_apply(self, p):
-        """ command : APPLY NAME """
+        """ statement : APPLY NAME """
         p[0] = 1
         raise NotImplemented
 
@@ -466,11 +387,11 @@ class MQL(Parser):
         p[0] = "$\"" + p[1] + "\""
 
     def p_where(self, p):
-        """ command : WHERE evalexpr """
+        """ statement : WHERE evalexpr """
         p[0] = "filter(%s)" % p[2]
 
     def p_stats(self, p):
-        """ command : STATS stats-agg-terms BY field-list"""
+        """ statement : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
         p[0] = "groupBy(%s).agg(%s)" % (p[4], p[2])
 
@@ -488,7 +409,7 @@ class MQL(Parser):
                            | COUNT
                            | COUNT AS NAME """
         if p[1] not in MQL.Statsfunctions:
-           sys.exit('Unknow stats function >> %s <<'%p[1])
+           raise Exception('Unknow stats function >> %s <<'%p[1])
         #TODO is this right,
         # replace the func with the right spark one
         if p[1].lower() == "count":
@@ -539,6 +460,23 @@ class MQL(Parser):
             print("Syntax error at '%s'" % p.value)
         else:
             print("Syntax error at EOF")
+
+    def post_process(self, ret):
+        if len(self.meta["caches"]) == 1:
+            return ret
+        rets = ret.split("\n")
+        caches = self.meta["caches"]
+        newret = ""
+        for ind in range(len(caches)):
+            if ind < len(caches) -1:
+                cache = caches[ind+1]
+            else:
+                cache = "df_out"
+            ret = rets[ind].replace(".{%s}" % cache, "")
+            newret += 'val {cache} = {df}{ret}\n'.format(cache=cache,
+                                                         ret=ret, df=caches[ind])
+        self.meta["caches"] = ["df"]
+        return newret
 
 if __name__ == '__main__':
     calc = MQL()

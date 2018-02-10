@@ -1,18 +1,9 @@
 from src.sparkcontroller.sparkcontroller import SparkControllerLivy
-from src.sparser.parser import MQL
-from src.sources import Source
+from src.sparser.search_trans import transform_search
 import json
 
 
 class Search:
-    source_inits = {
-        "elastic": "spark.read.format(\"org.elasticsearch.spark.sql\")"
-                   ".option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\")"
-                   ".option(\"es.read.field.empty.as.null\",\"true\")"
-                   ".option(\"es.index.read.missing.as.empty\",\"true\")"
-                   ".option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\")"
-                   ".option(\"es.read.field.exclude\", \"prospector,beat,tags\")"
-    }
     sc = None
 
     @staticmethod
@@ -22,52 +13,10 @@ class Search:
         return Search
 
     @staticmethod
-    def build_search_string(job, query_param):
-        meta = query_param["meta"]
-        sr = Source()
-        source_id = meta["source"]
-        imports = meta["imports"]
-        udfs = meta["udfs"]
-
-        source = sr.get_source(source_id)
-        source_query = ""
-        if source["type"] == "elastic":
-            source_query = Search.source_inits[source["type"]]
-            source_query += ".option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},"
-            source_query += "\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
-                            % (job["earliest"], job["latest"])
-            source_query += ".load(\"{index}-*\").sort(desc(\"@timestamp\"))".format(index=source_id)
-
-        search_template = """
-{imports}
-{udfs}
-
-val df = {input}
-val df1 = df{search}
-df1.toJSON.collect().foreach(println)
-"""
-        search_str = search_template.format(imports=imports, udfs=udfs, input=source_query, search=query_param["spark_query"])
-        return search_str
-
-    @staticmethod
     def process_search(job):
         spl_search = job["query"]
-        if not spl_search.startswith("source"):
-            return ""
-        mql = MQL()
-        # TODO handle search language errors
-        spark_query = mql.run(spl_search)
-        meta = mql.meta
-        query_param = {
-            "spark_query": spark_query,
-            "meta": meta
-        }
-
-        # Prepare the search string and convert it into full search
-        end_query = Search.build_search_string(job, query_param)
-        query_param["end_query"] = end_query
-
-        r = Search.sc.post_search(end_query)
+        spark_query = transform_search(spl_search)
+        r = Search.sc.post_search(spark_query)
         job["internal_session"] = r
         return 0
 

@@ -24,7 +24,7 @@ app = Flask(__name__)
 #app.config['SERVER_NAME'] = settings.FLASK_SERVER_NAME
 #app.config['SWAGGER_UI_DOC_EXPANSION'] = settings.RESTPLUS_SWAGGER_UI_DOC_EXPANSION
 #app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
-api = Api(app, version='1.0', title="Splunk 2 Spark", description="Splunk 2 Spark Mock service.", doc='/doc/')
+api = Api(app, version='1.2', title="Porseh", description="Porseh service.", doc='/doc/')
 jb = Jobs().init()
 sc = SchedMgm()
 dshb = DashboardMgm()
@@ -37,7 +37,7 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
-    response.headers.add('server', 'MyApp')
+    response.headers.add('server', 'Porseh')
     return response
 
 
@@ -49,9 +49,9 @@ class Index(Resource):
     def get(self):
         """ get app info """
         result = {
-            "project": "Splunk 2 Spark",
-            "description": "Splunk 2 Spark Mock service.",
-            "version": 1,
+            "project": "Porseh",
+            "description": "Porseh service.",
+            "version": 1.2,
             "docs": "goto /doc for the api documentation"
         }
         return result
@@ -68,7 +68,7 @@ def build_result_response(job, result):
 
 @api.route('/jobs/<string:query>/earliest/<string:earliest>/latest/<string:latest>')
 class Search(Resource):
-    @api.doc('Search Api')
+    @api.doc('Search Api, get result in blocking mode!')
     def post(self, query, earliest, latest):
         """ run a query and add it as job """
         job_post = {
@@ -110,7 +110,7 @@ class Jobs(Resource):
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-    @api.doc('Create a new job.')
+    @api.doc('Create a new search job.')
     @api.expect(job_post)
     def post(self):
         """ run a query and add it as job """
@@ -137,7 +137,7 @@ job_get = api.model('Job_Get', {
 
 @api.route('/jobs/<string:job_id>')
 class JobId(Resource):
-    @api.doc('Get job id status')
+    @api.doc('Get job id status and results')
     #@api.expect(job_get)
     def get(self, job_id):
         """ Get job's status and result by id """
@@ -169,7 +169,8 @@ sched_post = api.model('Schedule', {
     'latest': fields.String(description="The latest time to fetch data."),
     'action_email': fields.String(description="List of emails (comma separated)"),
     'script': fields.String(description="script file name to run"),
-    'throttling': fields.String(description="Throttling string")
+    'throttling': fields.String(description="Throttling string"),
+    'tags': fields.String(description="Comma seperated list of tags")
 })
 
 
