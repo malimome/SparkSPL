@@ -1,7 +1,7 @@
 import unittest
 
 from src.sparser.parser import MQL
-from src.sparser.search_trans import transform_search
+from fnmatch import fnmatch
 
 
 class TestParser(unittest.TestCase):
@@ -10,10 +10,16 @@ class TestParser(unittest.TestCase):
         searches = {
             'source=filebeat("t")':
                 'spark.read.format("org.elasticsearch.spark.sql").option("es.nodes", "localhost").option("es.port", "9200").option("es.read.field.empty.as.null","true").option("es.index.read.missing.as.empty","true").option("es.mapping.include", "beat.*, prospector.*, tags.*").option("es.read.field.exclude", "prospector,beat,tags").option("es.query","""{"query": {"match_all":{}},"filter": {"range":{"@timestamp": {"gte":"now-d", "lt":"now"}}}}""").load("filebeat-*").sort(desc("@timestamp"))',
-            'table a1':
-                'select("a1")',
+            'table a1, a2, a3':
+                'select("a1", "a2", "a3")',
+            'drop a1, a2, a3':
+                'drop("a1", "a2", "a3")',
+            'head 5':
+                'limit(5)',
+            'sort a desc, b asc, c, +d, -f':
+                'sort($"a".desc, $"b".asc, $"c".desc, $"d".asc, $"f".desc)',
             'stats max(b) as c, sum(f) as g by d':
-                'groupBy("d").agg(max("b").alias("c"),sum("f").alias("g"))',
+                'groupBy("d").agg(max("b").alias("c"), sum("f").alias("g"))',
             'eval a5 = (r1)*(2.3+r2+if(1 - 1, if(10<1, 100+1, 8*1), 3))':
                 'withColumn("a5",($"r1")*(lit(2.3)+$"r2"+when(lit(1)-lit(1), when(lit(10) < lit(1), lit(100)+lit(1)).otherwise(lit(8)*lit(1))).otherwise(lit(3))))',
             'eval a5 = "6trg", a6=5':
@@ -22,36 +28,30 @@ class TestParser(unittest.TestCase):
                 'withColumn("a5",rand())',
             'where a5 == "6trg"':
                 'filter($"a5" === lit("6trg"))',
-            'table a1 | eval a6=sin(a1)':
-                'select("a1").withColumn("a6",sin($"a1"))',
-            #'eval a5=rand() | cache b2 | eval a1=rand()':
-            #    'val b2 = df.withColumn("a5",rand())\nval df_out = b2.withColumn("a1",rand())\n',
             'rename a1 as a2, b1 as b2':
-                'withColumnRename(%s, %s).withColumnRename(b1, b2)',
-            'eval a=rand(), b=rand() | stats count, max(a) as a by b':
-                'withColumn("a",rand()).withColumn("b",rand()).groupBy("b").agg(count(),max("a").alias("a"))'
+                'withColumnRename("a1", "a2").withColumnRename("b1", "b2")',
+            'window max(b) as c, sum(f) as g over b orderby c range -1 to 1':
+                'val wS*=Window.partitionBy("b").orderBy($"c".desc).rangeBetween(-1, 1);withColumn("c", max("b").over(wS*)).withColumn("g", sum("f").over(wS*))'
         }
-        #searches = {
-        #    'source=a("t") | rename a1 as a2, b1 as b2': '.withColumnRename(%s, %s).withColumnRename(b1, b2)',
-        #}
 
-        #cl = MQL(earliest="now-d", latest="now")
-        q = """
-source=filebeat("t") 
-| stats max(b) as c, sum(f) as g by d 
-| eval a=rand(), b=rand()
-| rename a1 as a2, b1 as b2
-| where a5 == "6trg"
-"""
-        print(transform_search(q))
-        return ""
+        cl = MQL(earliest="now-d", latest="now")
         for s in searches:
             a = searches[s]
-            spsearch = transform_search(s)
-            print(spsearch)
+            spsearch = cl.run(s)
+            before = ""
+            after = ""
+            if "before" in cl.meta:
+                before = "%s;" % cl.meta["before"]
+            if "after" in cl.meta:
+                after = ";%s" % cl.meta["after"]
+            final = before + spsearch + after
+            #spsearch = transform_search(s)
+
+            ret = fnmatch(final, a)
+            if not ret:
+                print("#", s, final, a)
+            self.assertTrue(ret)
             #print(s, ", ", spsearch)
-            #self.assertEqual('a', cl.meta["source"])
-            #self.assertEqual('"t"', cl.meta["src_param"])
             #self.assertEqual(a, spsearch)
 
 

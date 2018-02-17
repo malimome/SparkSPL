@@ -1,6 +1,4 @@
 from src.sparser.parser import MQL
-import random
-import string
 
 
 def split_pipes(query):
@@ -32,55 +30,52 @@ val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 {udfs}
 {query}
 """
-    imports_string = ""
+    """imports_string = ""
     udfs_string = ""
     for im in imports:
         imports_string += "%s\n" % im
     for udf in udfs:
-        udfs_string += "%s\n" % udf
+        udfs_string += "%s\n" % udf"""
+    imports_string = "\n".join(imports)
+    udfs_string = "\n".join(udfs)
     search_str = search_template.format(imports=imports_string, udfs=udfs_string, query=query)
     return search_str
-
-
-def get_varname(var, vardict):
-    if var is None:
-        varname = 'df' + ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(7))
-    else:
-        varname = var
-    return varname
-
-
-def gen_output(prev_var):
-    output = "{prev_var}.toJSON.collect().foreach(println)".format(prev_var=prev_var)
-    return output
-
-
-def build_query(subqueries):
-    query = ""
-    prev_var = None
-    for [subq, varname] in subqueries:
-        if prev_var is None:
-            query += "val {varname} = {subq}\n".format(varname=varname, subq=subq)
-        else:
-            query += "val {varname} = {prev_var}.{subq}\n".format(varname=varname, prev_var=prev_var, subq=subq)
-        prev_var = varname
-    query += gen_output(prev_var)
-    return query
 
 
 def transform_search(search):
     subsearches = split_pipes(search)
     subqueries = []
     mql = MQL(earliest="now-d", latest="now")
-    vardict = dict()
     for subs in subsearches:
-        subq = mql.run(subs)
-        var = mql.meta["var"] if "var" in mql.meta else None
-        varname = get_varname(var, vardict)
-        subqueries.append([subq, varname])
-    spark_query = build_query(subqueries)
+        subq = mql.build_line(mql.run(subs))
+        subqueries.append(subq)
+    subqueries.append(mql.gen_output())
+    spark_query = "\n".join(subqueries) #build_query(subqueries)
     end_query = build_end_query(spark_query, mql.meta, mql.imports, mql.udfs)
-    print(end_query)
+    #print(end_query)
     return end_query
+
+
+"""
+source=a 
+| stats count by p 
+| join p [source=b | table p, t | join [source=c | table p, c]]
+"""
+"""
+val df = source(A)
+val df1 = df.stats
+val dfnew = source(b)
+val dfnew1 = dfnew.table
+val dfl = source(c)
+val dfl1 = dfl.table
+val dfnew2 = dfnew1.join(dfl1).on(p)
+val df2 = df1.join(dfnew2).one(p)
+"""
+
+"""
+only do gen_output if not subquery and is main
+also have modified end query
+"""
+
 
 
