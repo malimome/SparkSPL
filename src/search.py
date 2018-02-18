@@ -21,32 +21,43 @@ class Search:
         return 0
 
     @staticmethod
+    def update_job(job, result):
+        mapping = {
+            "waiting": "queued",
+            "running": "running",
+            "available": "finished",
+            "error": "error",
+            "cancelling": "cancelling",
+            "cancelled": "cancelled"
+        }
+        job['status'] = mapping[result['state']]
+        job['progress'] = int(result['progress'] * 100)
+
+    @staticmethod
     def get_search_result(job):
         r = job["internal_session"]
         result = Search.sc.get_result(r)
+        Search.update_job(job, result)
         data = Search.prepare_output(result)
-        context = {
-            'query': job["query"],
-            'result': result,
-            'data': data,
-        }
-        return context
+        return data
 
     @staticmethod
     def get_search_result_async(job):
         r = job["internal_session"]
         result = Search.sc.get_result_async(r)
-        context = {
-            'search': job["search"],
-            'result': result
-        }
+        Search.update_job(job, result)
         if result["state"] == "available":
             Search.sc.cleanup(r)
             data = Search.prepare_output(result)
-            context['data'] = data
         else:
-            context['data'] = {}
-        return context
+            data = None
+        return data
+
+    @staticmethod
+    def cancel_job(job):
+        r = job["internal_session"]
+        result = Search.sc.cancel_search(r)
+        return result
 
     @staticmethod
     def prepare_output(result):
@@ -57,9 +68,7 @@ class Search:
             raise Exception("%s" % output['evalue'] if 'evalue' in output else "Error in query")
         rdw = output['data']['text/plain']
         rdw = "[" + rdw.replace("\n", ",") + "]"
+        #TODO is this efficient
         data = json.loads(rdw)
         del output['data']
-        #rdw = rdw[rdw.strip().find('\n') + 1:].strip()
-        #data = csv.DictReader(StringIO(rdw))
-        metadata = {"x": "ctx", "y1": "aval", "y2": "mxval"}
         return data

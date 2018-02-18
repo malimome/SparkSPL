@@ -28,5 +28,9 @@ def test2():
     print(final)
 
 
+def test3():
+    import requests
+    requests.get("http://localhost:5000/jobs/93498234", {"mode":"normal", "offset": 0, "count":30})
+
 if __name__ == '__main__':
-    test1()
+    test3()

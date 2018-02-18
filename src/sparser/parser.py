@@ -452,6 +452,8 @@ class MQL(Parser):
         p[0] = stmts[len(p)].format(*p)
 
     def build_window_agg(self, stmts, p):
+        self.imports.add("import org.apache.spark.sql.expressions.Window")
+        self.imports.add("import org.apache.spark.sql.functions._")
         wSpecName = "wS" + Parser.get_rand_string(7)
         wSpecStr = "val {wSpec}=Window.".format(wSpec=wSpecName)
         wSpecStr += stmts[len(p)].format(*p)

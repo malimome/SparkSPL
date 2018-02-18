@@ -99,7 +99,7 @@ class Livy:
         while result['state'] != 'available':
             time.sleep(2)
             result = Livy.get_result_async(ssn_stmt)
-        Livy.session_restore(ssn_stmt)
+        #Livy.session_restore(ssn_stmt)
         return result
 
     @staticmethod

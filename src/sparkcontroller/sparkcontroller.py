@@ -62,6 +62,10 @@ class SparkControllerLivy(object):
         return SparkControllerLivy.lv.get_result_async(ssn_stmt)
 
     @staticmethod
+    def cancel_search(ssn_stmt):
+        return SparkControllerLivy.lv.cancel_query(ssn_stmt)
+
+    @staticmethod
     def cleanup(ssn_stmt):
         return SparkControllerLivy.lv.session_restore(ssn_stmt)
 

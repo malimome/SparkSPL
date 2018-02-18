@@ -55,8 +55,6 @@ class Jobs:
     def get_job(job_id):
         job = Jobs.jobs[job_id]
         result = Jobs.sch.get_search_result(job)
-        job["status"] = "finished"
-        job["progress"] = 100
         Jobs.jstorage.update(job_id, job)
         return job, result
 
@@ -64,16 +62,34 @@ class Jobs:
     def get_job_async(job_id):
         job = Jobs.jobs[job_id]
         result = Jobs.sch.get_search_result_async(job)
-        #if result["state"] == "available":
-        #    job["progress"] = 100
-        #else:
-        #    job["progress"] = min(99, job["progress"] + 10)
         Jobs.jstorage.update(job_id, job)
         return job, result
 
     @staticmethod
+    def build_result_response(job, result):
+        jobres = dict(job)
+        if job["status"] == "finished":
+            jobres["result"] = result
+            jobres["end_time"] = int(time.time())
+            jobres["result_summary"] = {
+                "count": len(result),
+                "fields": [],
+            }
+            jobres["visualization"] = {
+            }
+        else:
+            jobres["result"] = None
+        return jobres
+
+    @staticmethod
     def stop_job(job_id):
-        pass
+        job = Jobs.jobs[job_id]
+        result = Jobs.sch.cancel_job(job)
+        if 'msg' not in result or result['msg'] != "canceled":
+            raise Exception("Job cancellation failed.")
+        else:
+            job['status'] = 'cancelled'
+        return job
 
     @staticmethod
     def del_job(job_id):

@@ -1,5 +1,7 @@
 from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
+from webargs import fields as wfields, validate
+from webargs.flaskparser import use_kwargs, parser
 from src.jobs import Jobs
 from src.schedules import SchedMgm
 from src.dashboards import DashboardMgm
@@ -57,15 +59,6 @@ class Index(Resource):
         return result
 
 
-def build_result_response(job, result):
-    jobres = dict(job)
-    if job["status"] == "finished":
-        jobres["result"] = result
-    else:
-        jobres["result"] = {}
-    return jobres
-
-
 @api.route('/jobs/<string:query>/earliest/<string:earliest>/latest/<string:latest>')
 class Search(Resource):
     @api.doc('Search Api, get result in blocking mode!')
@@ -86,7 +79,7 @@ class Search(Resource):
         except Exception:
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return build_result_response(job, result)
+        return jb.build_result_response(job, result)
 
 
 job_post = api.model('Job', {
@@ -125,35 +118,62 @@ class Jobs(Resource):
         except Exception:
             raise
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return build_result_response(job, result)
-
-
-job_get = api.model('Job_Get', {
-    'offset': fields.Integer(description="The query to run for this report"),
-    'count': fields.Integer(description="The earliest time to fetch data."),
-    'mode': fields.String(description="blocking or normal")
-})
+        return jb.build_result_response(job, result)
 
 
 @api.route('/jobs/<string:job_id>')
 class JobId(Resource):
+    args = {
+        'mode': wfields.Str(
+            required=True,
+            validate=validate.OneOf(['blocking', 'normal']),
+        ),
+        'offset': wfields.Int(
+            required=False,
+            validate=validate.Range(0, 999999999999999999, "Offset over limit")
+        ),
+        'count': wfields.Int(
+            required=False,
+            validate=validate.Range(0, 999999999999999999, "Count over limit")
+        )
+    }
+    action = {
+        'action': wfields.Str(
+            required=True,
+            validate=validate.OneOf(['cancel', 'log']),
+        ),
+    }
+
+    @use_kwargs(args)
     @api.doc('Get job id status and results')
-    #@api.expect(job_get)
-    def get(self, job_id):
+    def get(self, job_id, mode, offset, count):
         """ Get job's status and result by id """
         try:
-            #if api.payload["mode"] != "blocking":
-            if False:
+            if mode != "blocking":
                 job, result = jb.get_job_async(job_id)
             else:
                 job, result = jb.get_job(job_id)
         except Exception:
             api.abort(404, "Server error")
-        return build_result_response(job, result)
+        return jb.build_result_response(job, result)
+
+    @use_kwargs(action)
+    @api.doc('Cancels a job')
+    def put(self, job_id, action):
+        try:
+            if action == "cancel":
+                result = jb.stop_job(job_id)
+            else:
+                raise NotImplemented
+        except Exception:
+            raise
+        return result
 
     def delete(self, job_id):
         """ Delete a job """
         try:
+            result = jb.stop_job(job_id)
+            # todo check
             jb.del_job(job_id)
         except Exception:
             raise
