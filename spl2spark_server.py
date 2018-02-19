@@ -153,8 +153,8 @@ class JobId(Resource):
                 job, result = jb.get_job_async(job_id)
             else:
                 job, result = jb.get_job(job_id)
-        except Exception:
-            api.abort(404, "Server error")
+        except Exception as ex:
+            api.abort(404, str(ex))
         return jb.build_result_response(job, result)
 
     @use_kwargs(action)

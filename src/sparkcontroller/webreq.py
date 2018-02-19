@@ -2,11 +2,11 @@ import requests
 
 
 #TODO Create connection pool
-def get_req(url, data=None, header=None):
+def get_req(url, param=None, header=None):
     print("%s %s"%("GET", url))
     resp = None
     try:
-        resp = requests.get(url, params=data, headers=header)
+        resp = requests.get(url, params=param, headers=header)
         if resp.status_code not in [200, 201]:
             raise ReferenceError(resp.content)
     except ConnectionError as ex:
@@ -17,6 +17,14 @@ def get_req(url, data=None, header=None):
 
 
 def post_req(url, data=None, json=None, header=None):
+    print("%s %s" % ("POST", url))
+    resp = requests.post(url, data=data, json=json, headers=header)
+    if resp.status_code not in [200, 201]:
+        raise Exception(str(resp))
+    return resp
+
+
+def put_req(url, data=None, json=None, header=None):
     print("%s %s" % ("POST", url))
     resp = requests.post(url, data=data, json=json, headers=header)
     if resp.status_code not in [200, 201]:
