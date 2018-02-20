@@ -154,7 +154,8 @@ class JobId(Resource):
             else:
                 job, result = jb.get_job(job_id)
         except Exception as ex:
-            api.abort(404, str(ex))
+            return {"status": "running", "progress": 10}
+            #api.abort(404, str(ex))
         return jb.build_result_response(job, result)
 
     @use_kwargs(action)
@@ -165,8 +166,8 @@ class JobId(Resource):
                 result = jb.stop_job(job_id)
             else:
                 raise NotImplemented
-        except Exception:
-            raise
+        except Exception as ex:
+            api.abort(404, str(ex))
         return result
 
     def delete(self, job_id):
@@ -175,8 +176,8 @@ class JobId(Resource):
             result = jb.stop_job(job_id)
             # todo check
             jb.del_job(job_id)
-        except Exception:
-            raise
+        except Exception as ex:
+            api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
 

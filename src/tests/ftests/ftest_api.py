@@ -6,7 +6,7 @@ from pprint import pprint
 
 headers = {'Content-Type': 'application/json'}
 URL = "http://sparkify.novelsec.com"
-#URL = "http://127.0.0.1:5000"
+URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
 
@@ -43,7 +43,10 @@ def jobid_url(job):
 def get_jobid(job):
     url = jobid_url(job)
     data = {"mode": "normal"}
-    r = get_req(url, param=data, header=headers)
+    try:
+        r = get_req(url, param=data, header=headers)
+    except Exception:
+        return {"status": "queued"}
     return r.json()
 
 
@@ -86,11 +89,11 @@ def post_job_get(q, cancel=False):
         if cancel:
             r = cancel_jobid(job)
         else:
-            time.sleep(1)
+            time.sleep(2)
         jstat = get_jobid(job)
         if cancel: break
     # ------
-    r = del_jobid(job)
+    del_jobid(job)
 
 
 if __name__ == '__main__':

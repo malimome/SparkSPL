@@ -9,17 +9,17 @@ class Livy:
     idles = set()
 
     @staticmethod
-    def init_livy():
-        if len(Livy.sessions) != 0:
+    def init_livy(force=False):
+        if len(Livy.sessions) != 0 and not force:
             return
         r = wr.get_req(Livy.session_url()) #, data={"from": 0, "size": 30}
         sns = r.json()["sessions"]
+        Livy.sessions = {}
+        Livy.idles = set()
         for session in sns:
             Livy.sessions[session["id"]] = session
             if session["state"] == "idle":
                 Livy.idles.add(session["id"])
-        #print(Livy.sessions)
-        #print(Livy.idles)
 
     @staticmethod
     def create_session():

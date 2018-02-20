@@ -51,16 +51,24 @@ class Jobs:
         Jobs.jobs = Jobs.jstorage.add(job_id, job)
         return job
 
+
+    @staticmethod
+    def _get_job(job_id):
+        if job_id in Jobs.jobs:
+            job = Jobs.jobs[job_id]
+            return job
+        else:
+            raise Exception("Job %s does not exist" % job_id)
     @staticmethod
     def get_job(job_id):
-        job = Jobs.jobs[job_id]
+        job = Jobs._get_job(job_id)
         result = Jobs.sch.get_search_result(job)
         Jobs.jstorage.update(job_id, job)
         return job, result
 
     @staticmethod
     def get_job_async(job_id):
-        job = Jobs.jobs[job_id]
+        job = Jobs._get_job(job_id)
         result = Jobs.sch.get_search_result_async(job)
         Jobs.jstorage.update(job_id, job)
         return job, result
@@ -83,7 +91,7 @@ class Jobs:
 
     @staticmethod
     def stop_job(job_id):
-        job = Jobs.jobs[job_id]
+        job = Jobs._get_job(job_id)
         result = Jobs.sch.cancel_job(job)
         if 'msg' not in result or result['msg'] != "canceled":
             raise Exception("Job cancellation failed.")
@@ -93,6 +101,7 @@ class Jobs:
 
     @staticmethod
     def del_job(job_id):
+        job = Jobs._get_job(job_id)
         Jobs.jobs = Jobs.jstorage.delete(job_id)
         return 0
 
