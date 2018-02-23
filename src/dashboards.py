@@ -5,7 +5,7 @@ from src import storage as st
 
 class DashboardMgm:
     def __init__(self):
-        self.sstorage = st.FileStorage("dashboards.conf")
+        self.sstorage = st.INIStorage("dashboards.conf")
         self.dashs = self.sstorage.getall()
 
     def all_dashs(self):

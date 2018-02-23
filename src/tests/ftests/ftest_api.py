@@ -5,7 +5,7 @@ from pprint import pprint
 
 
 headers = {'Content-Type': 'application/json'}
-URL = "http://sparkify.novelsec.com"
+#URL = "http://sparkify.novelsec.com"
 URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
@@ -45,22 +45,23 @@ def get_jobid(job):
     data = {"mode": "normal"}
     try:
         r = get_req(url, param=data, header=headers)
-    except Exception:
-        return {"status": "queued"}
+    except Exception as ex:
+        return str(ex)
     return r.json()
 
 
 @nice_print
 def get_jobid_block(job):
     url = jobid_url(job)
-    r = get_req(url, data=None, header=headers)
+    data = {"mode": "blocking"}
+    r = get_req(url, param=data, header=headers)
     return r.json()
 
 
 @nice_print
 def cancel_jobid(job):
     url = jobid_url(job)
-    data = {"action": "cancel"}
+    url += "?action=cancel"
     r = put_req(url, data=None, json=None, header=headers)
     return r.json()
 
@@ -93,12 +94,23 @@ def post_job_get(q, cancel=False):
         jstat = get_jobid(job)
         if cancel: break
     # ------
+    ret = get_jobid_block(job)
     del_jobid(job)
 
 
 if __name__ == '__main__':
-    q= "source=filebeat | head 3"
+    q= """source=filebeat 
+| eval group = offset % 20, rn = rand()
+| sort group desc, @timestamp desc
+| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
+| rename c as c2, g as g2 | head 5
+"""
+    #q = "source=filebeat | head 3"
     post_job_get(q, cancel=False)
+    #job = {"job_id": "472b4ab2-17a3-11e8-a3fa-c8f733a41618"}
+    #jstat = get_jobid(job)
+    #print(jstat["out"]["result"][0])
+
 
 
 

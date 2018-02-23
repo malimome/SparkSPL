@@ -2,10 +2,7 @@ from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
 from webargs import fields as wfields, validate
 from webargs.flaskparser import use_kwargs, parser
-from src.jobs import Jobs
-from src.schedules import SchedMgm
-from src.dashboards import DashboardMgm
-from src.sources import Source
+from src.core import jb, sc, dshb, sr, coreloop
 import settings
 #from flask_restplus_patched._http import HTTPStatus
 #from src.utils import http_exceptions as he
@@ -27,11 +24,13 @@ app = Flask(__name__)
 #app.config['SWAGGER_UI_DOC_EXPANSION'] = settings.RESTPLUS_SWAGGER_UI_DOC_EXPANSION
 #app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
 api = Api(app, version='1.2', title="Porseh", description="Porseh service.", doc='/doc/')
-jb = Jobs().init()
-sc = SchedMgm()
-dshb = DashboardMgm()
-sr = Source()
 # TODO create a user session and tie Livy sessions to it.
+coreloop()
+
+
+def print_debug(ex):
+    if settings.FLASK_DEBUG:
+        print(str(ex))
 
 
 @app.after_request
@@ -53,7 +52,7 @@ class Index(Resource):
         result = {
             "project": "Porseh",
             "description": "Porseh service.",
-            "version": 1.2,
+            "version": 1.3,
             "docs": "goto /doc for the api documentation"
         }
         return result
@@ -76,8 +75,9 @@ class Search(Resource):
             jb.post_job(job_)
             job, result = jb.get_job(job_["job_id"])
             jb.del_job(job_["job_id"])
-        except Exception:
-            raise
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
         return jb.build_result_response(job, result)
 
@@ -99,33 +99,35 @@ class Jobs(Resource):
         """ get list of all jobs """
         try:
             return jb.get_jobs()
-        except Exception:
-            raise
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @api.doc('Create a new search job.')
     @api.expect(job_post)
     def post(self):
         """ run a query and add it as job """
-        job_ = {}
+        result = {}
         try:
             job_ = jb.add_job(api.payload)
             jb.post_job(job_)
             if api.payload["mode"] != "blocking":
                 return job_
-            job, result = jb.get_job(job_["job_id"])
+            result = jb.get_job(job_["job_id"])
             jb.del_job(job_["job_id"])
-        except Exception:
-            raise
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return jb.build_result_response(job, result)
+        return result
 
 
 @api.route('/jobs/<string:job_id>')
 class JobId(Resource):
     args = {
         'mode': wfields.Str(
-            required=True,
+            required=False,
             validate=validate.OneOf(['blocking', 'normal']),
         ),
         'offset': wfields.Int(
@@ -148,15 +150,16 @@ class JobId(Resource):
     @api.doc('Get job id status and results')
     def get(self, job_id, mode, offset, count):
         """ Get job's status and result by id """
+        result = {}
         try:
             if mode != "blocking":
-                job, result = jb.get_job_async(job_id)
+                result = jb.get_job_async(job_id)
             else:
-                job, result = jb.get_job(job_id)
+                result = jb.get_job(job_id)
         except Exception as ex:
-            return {"status": "running", "progress": 10}
-            #api.abort(404, str(ex))
-        return jb.build_result_response(job, result)
+            print_debug(ex)
+            api.abort(404, str(ex))
+        return result
 
     @use_kwargs(action)
     @api.doc('Cancels a job')
@@ -167,6 +170,7 @@ class JobId(Resource):
             else:
                 raise NotImplemented
         except Exception as ex:
+            print_debug(ex)
             api.abort(404, str(ex))
         return result
 
@@ -174,9 +178,9 @@ class JobId(Resource):
         """ Delete a job """
         try:
             result = jb.stop_job(job_id)
-            # todo check
             jb.del_job(job_id)
         except Exception as ex:
+            print_debug(ex)
             api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
@@ -302,4 +306,7 @@ class DashboardId(Resource):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    if settings.FLASK_DEBUG:
+        app.run(debug=True, use_reloader=False)
+    else:
+        app.run()

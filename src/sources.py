@@ -7,7 +7,7 @@ import src.storage as st
 
 class Source:
     def __init__(self):
-        self.sstorage = st.FileStorage("sources.conf")
+        self.sstorage = st.INIStorage("sources.conf")
         self.sources = self.sstorage.getall()
 
     def sources(self):

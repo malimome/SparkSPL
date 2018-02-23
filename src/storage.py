@@ -1,5 +1,6 @@
 import json
 import os
+import configparser
 
 
 class Storage(object):
@@ -17,19 +18,29 @@ class Storage(object):
 
     def add(self, id, content):
         self.items[id] = content
-        self._put()
+        self._put(self.items)
         return self.items
 
     def update(self, id, content):
         return self.add(id, content)
 
     def delete(self, id):
-        del self.items[id]
-        self._put()
+        if id in self.items:
+            del self.items[id]
+        else:
+            raise Exception("Item %d does not exists" % id)
+        self._put(self.items)
         return self.items
 
-    def _put(self):
-        pass
+    def _put(self, items):
+        raise NotImplemented
+
+    def hard_delete_file(self):
+        try:
+            os.remove(self.file)
+            return True
+        except:
+            return False
 
 
 class FileStorage(Storage):
@@ -48,68 +59,59 @@ class FileStorage(Storage):
             return self.items
         return self.items
 
-    def _put(self):
+    def _put(self, items):
         try:
             with open(self.file, "w") as fp:
-                json.dump(self.items, fp, indent=2, sort_keys=True)
+                json.dump(items, fp, indent=2, sort_keys=True)
         except:
-            pass
+            raise Exception("Error writing config file %s" % self.file)
 
-"""
-import ConfigParser
-import io
+
 class INIStorage(Storage):
     def __init__(self, name):
         super(INIStorage, self).__init__(name)
 
     def getall(self):
-        with open(self.file) as f:
-            sample_config = f.read()
-        config = ConfigParser.RawConfigParser(allow_no_value=True)
-        config.readfp(io.BytesIO(sample_config))
+        config = configparser.RawConfigParser(allow_no_value=True)
+        config.read(self.file)
 
-        # List all contents
-        print("List all contents")
         for section in config.sections():
-            print("Section: %s" % section)
+            self.items[section] = {}
             for options in config.options(section):
-                print("x %s:::%s:::%s" % (options,
-                                          config.get(section, options),
-                                          str(type(options))))
+                self.items[section][options] = config.get(section, options)
+        return self.items
 
-        # Print some contents
-        print("\nPrint some contents")
-        print(config.get('other', 'use_anonymous'))  # Just get the value
-        print(config.getboolean('other', 'use_anonymous'))  # You know the datatype?
+    def _put(self, items):
+        config = configparser.ConfigParser()
+        config.read_dict(items)
+        try:
+            with open(self.file, 'w') as configfile:
+                config.write(configfile)
+        except Exception as ex:
+            raise Exception("Error in writing config file %s: %s" % self.file, str(ex))
 
-    def _put(self):
-        cfgfile = open(self.file, 'w')
 
-        # Add content to the file
-        Config = ConfigParser.ConfigParser()
-        Config.add_section('mysql')
-        Config.set('mysql', 'host', 'localhost')
-        Config.set('mysql', 'user', 'root')
-        Config.set('mysql', 'passwd', 'my secret password')
-        Config.set('mysql', 'db', 'write-math')
-        Config.add_section('other')
-        Config.set('other',
-                   'preprocessing_queue',
-                   ['preprocessing.scale_and_center',
-                    'preprocessing.dot_reduction',
-                    'preprocessing.connect_lines'])
-        Config.set('other', 'use_anonymous', True)
-        Config.write(cfgfile)
-        cfgfile.close()
-        
-
-import yaml       
-class YMLStorage(Storage):
+class JINIStorage(INIStorage):
     def __init__(self, name):
-        super(INIStorage, self).__init__(name)
-        
+        super(JINIStorage, self).__init__(name)
 
-    def get_all(self):
-        with open("config.yml", 'r') as ymlfile:
-            cfg = yaml.load(ymlfile)
-"""
+    def getall(self):
+        entries = super(JINIStorage, self).getall()
+        for e in entries:
+            v = entries[e]
+            v["query"] = v["query"].replace('%%', '%')
+        return entries
+
+#    def add(self, id, content):
+#        #content = dict(content1)
+#        #content["query"] = content["query"].replace('%', '%%')
+#        return super(JINIStorage, self).add(id, content)
+#        return items
+
+    def _put(self, items):
+        entries = {}
+        for i in items:
+            c = dict(items[i])
+            c["query"] = c["query"].replace('%', '%%')
+            entries[i] = c
+        super(JINIStorage, self)._put(entries)

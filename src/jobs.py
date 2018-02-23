@@ -1,7 +1,6 @@
-import json
 import time
 import uuid
-
+from src.utils.threader import threaded
 import src.storage as st
 from src.search import Search
 
@@ -14,7 +13,7 @@ class Jobs:
     @staticmethod
     def init():
         if Jobs.jstorage is None:
-            Jobs.jstorage = st.FileStorage("jobs.conf")
+            Jobs.jstorage = st.JINIStorage("jobs.conf")
             Jobs.jobs = Jobs.jstorage.getall()
             Jobs.sch = Search().init()
         return Jobs
@@ -28,7 +27,8 @@ class Jobs:
         Jobs.sch.process_search(job)
         # some stuff added to job
         job["status"] = "started"
-        Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
+        Jobs.jobs[job["job_id"]] = job
+        #Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
         return 0
 
     @staticmethod
@@ -55,23 +55,52 @@ class Jobs:
     @staticmethod
     def _get_job(job_id):
         if job_id in Jobs.jobs:
-            job = Jobs.jobs[job_id]
-            return job
+            return Jobs.jobs[job_id]
         else:
             raise Exception("Job %s does not exist" % job_id)
+
+    @staticmethod
+    @threaded
+    def _check_job_dump(job, result):
+        if job["status"] != "finished":
+            Jobs.jobs[job["job_id"]] = job
+            return None
+        Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
+        jfs = st.FileStorage("jout/%s" % job["job_id"])
+        jfs.update("out", result)
+
+    @staticmethod
+    def _check_job_load(job):
+        if job["status"] != "finished":
+            return None
+        jfs = st.FileStorage("jout/%s" % job["job_id"])
+        return jfs.getall()["out"]
+
     @staticmethod
     def get_job(job_id):
         job = Jobs._get_job(job_id)
+        if job["status"] == "cancelled":
+            return job
+        final = Jobs._check_job_load(job)
+        if final is not None:
+            return final
         result = Jobs.sch.get_search_result(job)
-        Jobs.jstorage.update(job_id, job)
-        return job, result
+        final = Jobs.build_result_response(job, result)
+        Jobs._check_job_dump(job, final)
+        return final
 
     @staticmethod
     def get_job_async(job_id):
         job = Jobs._get_job(job_id)
+        if job["status"] == "cancelled":
+            return job
+        final = Jobs._check_job_load(job)
+        if final is not None:
+            return final
         result = Jobs.sch.get_search_result_async(job)
-        Jobs.jstorage.update(job_id, job)
-        return job, result
+        final = Jobs.build_result_response(job, result)
+        Jobs._check_job_dump(job, final)
+        return final
 
     @staticmethod
     def build_result_response(job, result):
@@ -92,16 +121,21 @@ class Jobs:
     @staticmethod
     def stop_job(job_id):
         job = Jobs._get_job(job_id)
+        if job["status"] == "cancelled":
+            return job
         result = Jobs.sch.cancel_job(job)
         if 'msg' not in result or result['msg'] != "canceled":
             raise Exception("Job cancellation failed.")
         else:
             job['status'] = 'cancelled'
+        job["status"] = "cancelled"
+        Jobs.jobs = Jobs.jstorage.update(job_id, job)
         return job
 
     @staticmethod
     def del_job(job_id):
-        job = Jobs._get_job(job_id)
+        jfs = st.FileStorage("jout/%s" % job_id)
+        jfs.hard_delete_file()
         Jobs.jobs = Jobs.jstorage.delete(job_id)
         return 0
 

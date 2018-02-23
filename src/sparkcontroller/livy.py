@@ -1,5 +1,6 @@
 import time
 from src.sparkcontroller import webreq as wr
+from src.utils.threader import threaded
 
 
 class Livy:
@@ -111,6 +112,7 @@ class Livy:
         return r.json()
 
     @staticmethod
+    @threaded
     def session_restore(ssn_stmt):
         session_id = ssn_stmt["sid"]
         if session_id in Livy.idles:

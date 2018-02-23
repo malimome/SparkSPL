@@ -5,7 +5,7 @@ from src import storage as st
 
 class SchedMgm:
     def __init__(self):
-        self.sstorage = st.FileStorage("schedules.conf")
+        self.sstorage = st.INIStorage("schedules.conf")
         self.scheds = self.sstorage.getall()
 
     def all_scheds(self):
