@@ -34,23 +34,18 @@ class Search:
         job['progress'] = int(result['progress'] * 100)
 
     @staticmethod
-    def get_search_result(job):
+    def get_search_result(job, mode):
         r = job["internal_session"]
-        result = Search.sc.get_result(r)
-        Search.update_job(job, result)
-        data = Search.prepare_output(result)
-        return data
-
-    @staticmethod
-    def get_search_result_async(job):
-        r = job["internal_session"]
-        result = Search.sc.get_result_async(r)
-        Search.update_job(job, result)
-        if result["state"] == "available":
-            Search.sc.cleanup(r)
-            data = Search.prepare_output(result)
+        data = None
+        if mode != "blocking":
+            result = Search.sc.get_result_async(r)
+            if result["state"] == "available":
+                Search.sc.cleanup(r)
+                data = Search.prepare_output(result)
         else:
-            data = None
+            result = Search.sc.get_result(r)
+            data = Search.prepare_output(result)
+        Search.update_job(job, result)
         return data
 
     @staticmethod
@@ -68,7 +63,6 @@ class Search:
             raise Exception("%s" % output['evalue'] if 'evalue' in output else "Error in query")
         rdw = output['data']['text/plain']
         rdw = "[" + rdw.replace("\n", ",") + "]"
-        #TODO is this efficient
         data = json.loads(rdw)
         del output['data']
         return data

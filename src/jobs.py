@@ -25,10 +25,9 @@ class Jobs:
     @staticmethod
     def post_job(job):
         Jobs.sch.process_search(job)
-        # some stuff added to job
         job["status"] = "started"
         Jobs.jobs[job["job_id"]] = job
-        #Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
+        Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
         return 0
 
     @staticmethod
@@ -54,13 +53,13 @@ class Jobs:
 
     @staticmethod
     def _get_job(job_id):
+        Jobs.jobs = Jobs.jstorage.getall()
         if job_id in Jobs.jobs:
             return Jobs.jobs[job_id]
         else:
             raise Exception("Job %s does not exist" % job_id)
 
     @staticmethod
-    @threaded
     def _check_job_dump(job, result):
         if job["status"] != "finished":
             Jobs.jobs[job["job_id"]] = job
@@ -77,39 +76,27 @@ class Jobs:
         return jfs.getall()["out"]
 
     @staticmethod
-    def get_job(job_id):
+    def get_job(job_id, mode="normal", offset=0, count=100000):
         job = Jobs._get_job(job_id)
         if job["status"] == "cancelled":
             return job
-        final = Jobs._check_job_load(job)
-        if final is not None:
-            return final
-        result = Jobs.sch.get_search_result(job)
-        final = Jobs.build_result_response(job, result)
-        Jobs._check_job_dump(job, final)
+        result = Jobs._check_job_load(job)
+        if result is None:
+            result = Jobs.sch.get_search_result(job, mode)
+            Jobs._check_job_dump(job, result)
+        final = Jobs.build_result_response(job, result, offset, count)
         return final
 
     @staticmethod
-    def get_job_async(job_id):
-        job = Jobs._get_job(job_id)
-        if job["status"] == "cancelled":
-            return job
-        final = Jobs._check_job_load(job)
-        if final is not None:
-            return final
-        result = Jobs.sch.get_search_result_async(job)
-        final = Jobs.build_result_response(job, result)
-        Jobs._check_job_dump(job, final)
-        return final
-
-    @staticmethod
-    def build_result_response(job, result):
+    def build_result_response(job, result, offset, count):
         jobres = dict(job)
         if job["status"] == "finished":
-            jobres["result"] = result
+            jobres["result"] = result[offset:offset+count]
             jobres["end_time"] = int(time.time())
             jobres["result_summary"] = {
-                "count": len(result),
+                "total_count": len(result),
+                "return_count": len(jobres["result"]),
+                "return_offset": offset,
                 "fields": [],
             }
             jobres["visualization"] = {

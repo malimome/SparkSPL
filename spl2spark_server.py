@@ -67,27 +67,29 @@ class Search(Resource):
             'query': query,
             'earliest': earliest,
             'latest': latest,
-            'mode': 'normal',
+            'mode': 'blocking',
             'priority': 'normal'
         }
         try:
             job_ = jb.add_job(job_post)
             jb.post_job(job_)
-            job, result = jb.get_job(job_["job_id"])
+            result = jb.get_job(job_["job_id"], mode="blocking")
             jb.del_job(job_["job_id"])
         except Exception as ex:
             print_debug(ex)
             api.abort(404, str(ex))
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return jb.build_result_response(job, result)
+        return result
 
 
 job_post = api.model('Job', {
     'query': fields.String(description="The query to run for this report", required=True),
     'earliest': fields.String(description="The earliest time to fetch data."),
     'latest': fields.String(description="The latest time to fetch data."),
-    'priority': fields.String(description="Low, normal or high (medium is default)."),
-    'mode': fields.String(description="blocking or normal")
+    'priority': fields.String(reuquired=False, enum=["normal", "low", "high"],
+                default="normal", description="low, normal or high (medium is default)."),
+    'mode': fields.String(reuquired=False, enum=["normal", "blocking"],
+                default="normal", description="blocking or normal")
 })
 
 
@@ -105,7 +107,7 @@ class Jobs(Resource):
             #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
 
     @api.doc('Create a new search job.')
-    @api.expect(job_post)
+    @api.expect(job_post, validate=True)
     def post(self):
         """ run a query and add it as job """
         result = {}
@@ -114,7 +116,7 @@ class Jobs(Resource):
             jb.post_job(job_)
             if api.payload["mode"] != "blocking":
                 return job_
-            result = jb.get_job(job_["job_id"])
+            result = jb.get_job(job_["job_id"], mode=api.payload["mode"])
             jb.del_job(job_["job_id"])
         except Exception as ex:
             print_debug(ex)
@@ -124,10 +126,12 @@ class Jobs(Resource):
 
 
 @api.route('/jobs/<string:job_id>')
+@api.doc(params={'job_id': 'Job_id string'})
 class JobId(Resource):
     args = {
         'mode': wfields.Str(
             required=False,
+            choices=('blocking', 'normal'),
             validate=validate.OneOf(['blocking', 'normal']),
         ),
         'offset': wfields.Int(
@@ -136,12 +140,13 @@ class JobId(Resource):
         ),
         'count': wfields.Int(
             required=False,
-            validate=validate.Range(0, 999999999999999999, "Count over limit")
+            validate=validate.Range(0, 100000, "Count over limit")
         )
     }
     action = {
         'action': wfields.Str(
             required=True,
+            choices=('cancel', 'log'),
             validate=validate.OneOf(['cancel', 'log']),
         ),
     }
@@ -152,10 +157,7 @@ class JobId(Resource):
         """ Get job's status and result by id """
         result = {}
         try:
-            if mode != "blocking":
-                result = jb.get_job_async(job_id)
-            else:
-                result = jb.get_job(job_id)
+            result = jb.get_job(job_id, mode, offset, count)
         except Exception as ex:
             print_debug(ex)
             api.abort(404, str(ex))

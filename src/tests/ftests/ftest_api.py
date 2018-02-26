@@ -40,9 +40,9 @@ def jobid_url(job):
 
 
 @nice_print
-def get_jobid(job):
+def get_jobid(job, offset=0, count=5):
     url = jobid_url(job)
-    data = {"mode": "normal"}
+    data = {"mode": "normal", "offset": offset, "count": count}
     try:
         r = get_req(url, param=data, header=headers)
     except Exception as ex:
@@ -51,9 +51,9 @@ def get_jobid(job):
 
 
 @nice_print
-def get_jobid_block(job):
+def get_jobid_block(job, offset=0, count=5):
     url = jobid_url(job)
-    data = {"mode": "blocking"}
+    data = {"mode": "blocking", "offset": offset, "count": count}
     r = get_req(url, param=data, header=headers)
     return r.json()
 
@@ -86,15 +86,22 @@ def post_job_get(q, cancel=False):
     job = post_jobs(query)
     # ------
     jstat = get_jobid(job)
-    while jstat["status"] != "finished":
+    status = jstat["status"] if "status" in jstat else "hmm"
+    while status != "finished":
         if cancel:
             r = cancel_jobid(job)
         else:
             time.sleep(2)
-        jstat = get_jobid(job)
+        jstat = get_jobid(job, 0, 5)
+        status = jstat["status"] if "status" in jstat else "hmm"
         if cancel: break
+    print("after loop1")
     # ------
-    ret = get_jobid_block(job)
+    ret = get_jobid_block(job, 5, 5)
+    ret = get_jobid(job, 10, 5)
+    ret = get_jobid(job, 15, 5)
+    print("after loop2")
+    ret = get_jobid(job, 20, 5)
     del_jobid(job)
 
 
@@ -103,9 +110,14 @@ if __name__ == '__main__':
 | eval group = offset % 20, rn = rand()
 | sort group desc, @timestamp desc
 | window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| rename c as c2, g as g2 | head 5
+| rename c as c2, g as g2
 """
     #q = "source=filebeat | head 3"
+    #job = {
+    #    "job_id": "52e2ab1e-1aac-11e8-aa06-c8f733a41618"
+    #}
+    #ret = get_jobid_block(job, 5, 5)
+    #del_jobid(job)
     post_job_get(q, cancel=False)
     #job = {"job_id": "472b4ab2-17a3-11e8-a3fa-c8f733a41618"}
     #jstat = get_jobid(job)

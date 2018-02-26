@@ -100,18 +100,22 @@ class JINIStorage(INIStorage):
         for e in entries:
             v = entries[e]
             v["query"] = v["query"].replace('%%', '%')
+            if "sid" in v:
+                v["internal_session"] = {
+                    "sid": v["sid"],
+                    "tid": v["tid"]
+                }
+                del v["sid"]
+                del v["tid"]
         return entries
-
-#    def add(self, id, content):
-#        #content = dict(content1)
-#        #content["query"] = content["query"].replace('%', '%%')
-#        return super(JINIStorage, self).add(id, content)
-#        return items
 
     def _put(self, items):
         entries = {}
         for i in items:
             c = dict(items[i])
             c["query"] = c["query"].replace('%', '%%')
+            if "internal_session" in c:
+                c["sid"] = c["internal_session"]["sid"]
+                c["tid"] = c["internal_session"]["tid"]
             entries[i] = c
         super(JINIStorage, self)._put(entries)
