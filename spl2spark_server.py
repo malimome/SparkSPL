@@ -1,8 +1,8 @@
 from flask import Flask
 from flask_restplus import Resource, Api as BaseApi, fields
 from webargs import fields as wfields, validate
-from webargs.flaskparser import use_kwargs, parser
-from src.core import jb, sc, dshb, sr, coreloop
+from webargs.flaskparser import use_kwargs#, parser
+from src.core import jb, sc, dshb, sr, id, core_loop
 import settings
 #from flask_restplus_patched._http import HTTPStatus
 #from src.utils import http_exceptions as he
@@ -25,7 +25,7 @@ app = Flask(__name__)
 #app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
 api = Api(app, version='1.2', title="Porseh", description="Porseh service.", doc='/doc/')
 # TODO create a user session and tie Livy sessions to it.
-coreloop()
+core_loop()
 
 
 def print_debug(ex):
@@ -181,6 +181,71 @@ class JobId(Resource):
         try:
             result = jb.stop_job(job_id)
             jb.del_job(job_id)
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+
+index_post = api.model('Index', {
+    'name': fields.String(description="The index name", required=True),
+    'retention': fields.Integer(description="The number of retention days."),
+    'retention_size': fields.Integer(description="The retention size of index in MB."),
+    'readonly': fields.Boolean(description="If cannot be used to dump summary data.")
+})
+
+
+@api.route('/indexes')
+class Index(Resource):
+    @api.doc('Get list of indexes')
+    def get(self):
+        """ get list of all indexes """
+        try:
+            return id.get_indexes()
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    @api.doc('Create a new index.')
+    @api.expect(index_post, validate=True)
+    def post(self):
+        """ add a new index """
+        try:
+            index = id.add_index(api.payload)
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
+            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        return {"message": "success"}
+
+
+@api.route('/indexes/<string:name>')
+@api.doc(params={'name': 'index name'})
+class IndexName(Resource):
+    retention = {
+        'keep': wfields.Int(
+            required=False,
+        ),
+    }
+
+    @api.doc('Get index by name')
+    def get(self, name):
+        """ Get index by name """
+        result = {}
+        try:
+            result = id.get_index(name)
+        except Exception as ex:
+            print_debug(ex)
+            api.abort(404, str(ex))
+        return result
+
+    @use_kwargs(retention)
+    def delete(self, name, keep):
+        """ Delete an index """
+        try:
+            # TODO keep is the number of last days to keep the data and delete the rest
+            jb.del_index(name)
         except Exception as ex:
             print_debug(ex)
             api.abort(404, str(ex))

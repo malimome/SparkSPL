@@ -13,6 +13,10 @@ class Search:
         return Search
 
     @staticmethod
+    def search_loop(min_idle):
+        Search.sc.manage_livy_session(min_idle)
+
+    @staticmethod
     def process_search(job):
         spl_search = job["query"]
         spark_query = transform_search(spl_search)

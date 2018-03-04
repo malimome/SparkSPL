@@ -1,6 +1,5 @@
 import time
 import uuid
-from src.utils.threader import threaded
 import src.storage as st
 from src.search import Search
 
@@ -17,6 +16,10 @@ class Jobs:
             Jobs.jobs = Jobs.jstorage.getall()
             Jobs.sch = Search().init()
         return Jobs
+
+    @staticmethod
+    def job_loop():
+        pass
 
     @staticmethod
     def get_jobs():

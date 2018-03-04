@@ -30,12 +30,6 @@ val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 {udfs}
 {query}
 """
-    """imports_string = ""
-    udfs_string = ""
-    for im in imports:
-        imports_string += "%s\n" % im
-    for udf in udfs:
-        udfs_string += "%s\n" % udf"""
     imports_string = "\n".join(imports)
     udfs_string = "\n".join(udfs)
     search_str = search_template.format(imports=imports_string, udfs=udfs_string, query=query)

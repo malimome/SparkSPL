@@ -110,8 +110,9 @@ if __name__ == '__main__':
 | eval group = offset % 20, rn = rand()
 | sort group desc, @timestamp desc
 | window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| rename c as c2, g as g2
+| rename c as c2, g as g2 | head 1000
 """
+    # | save summary_test
     #q = "source=filebeat | head 3"
     #job = {
     #    "job_id": "52e2ab1e-1aac-11e8-aa06-c8f733a41618"
@@ -119,6 +120,8 @@ if __name__ == '__main__':
     #ret = get_jobid_block(job, 5, 5)
     #del_jobid(job)
     post_job_get(q, cancel=False)
+    #print("######## NEW SUMMARY")
+    #post_job_get("source=summary_test", cancel=False)
     #job = {"job_id": "472b4ab2-17a3-11e8-a3fa-c8f733a41618"}
     #jstat = get_jobid(job)
     #print(jstat["out"]["result"][0])

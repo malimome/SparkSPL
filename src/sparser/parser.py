@@ -129,6 +129,7 @@ class MQL(Parser):
         "window": "WINDOW",
         "by": "BY",
         "over": "OVER",
+        "save": "SAVE",
         "as": "AS",
         "sort": "SORT",
         "orderby": "ORDERBY",
@@ -238,6 +239,11 @@ class MQL(Parser):
         t.type = MQL.RESERVED.get(t.value, 'LITERAL')
         return t
 
+    """
+    TODO:
+    Separate source name, commands, fields, literals, etc
+    """
+
     def t_newline(self, t):
         r'\n+'
         t.lexer.lineno += t.value.count("\n")
@@ -256,13 +262,13 @@ class MQL(Parser):
             self.meta["src_param"] = p[5]
 
     def p_table(self, p):
-        """ statement : TABLE field-list """
+        """ statement : TABLE field-list
+                      | TABLE '-' field-list"""
         # TODO can rename be done here as well
-        p[0] = "select({2})".format(*p)
-
-    def p_drop(self, p):
-        """ statement : DROP field-list """
-        p[0] = "drop({2})".format(*p)
+        if len(p) == 3:
+            p[0] = "select({2})".format(*p)
+        else:
+            p[0] = "drop({2})".format(*p)
 
     #def p_join(self, p):
     #    """ command : JOIN 'type' = NAME NAME [statement]"""
@@ -276,6 +282,40 @@ class MQL(Parser):
     def p_cache(self, p):
         """ statement : CACHE NAME """
         self.var = p[2]
+        p[0] = ""
+
+#    def p_inline(self, p):
+#        """ statement : INLINE '[' subquery ']' """
+#        # TODO store var here, do calcs and add it back to var.
+#        p[0] = ""
+
+    def p_save(self, p):
+        """ statement : SAVE NAME """
+        print(self.prev_var)
+        self.meta["before"] = """{var}.write.format("org.elasticsearch.spark.sql")
+.option("es.nodes" , "localhost")
+.option("es.port","9200")
+.option("es.index.auto.create","true")
+.option("es.nodes.wan.only","true")
+.option("es.resouce.auto.create", "{res}")
+.mode("Append")
+.save("{res}")
+        """.format(var=self.prev_var, res="%s-/summary" % p[2])
+        p[0] = ""
+        #.mode("Overwrite")
+
+    def p_drop(self, p):
+        """ statement : DROP NAME """
+        #TODO fix the variable before write, should be empty variable
+        self.meta["before"] = """write.format("org.elasticsearch.spark.sql")
+        .option("es.nodes" , "localhost")
+        .option("es.port","9200")
+        .option("es.index.auto.create","true")
+        .option("es.nodes.wan.only","true")
+        .option("es.resouce.auto.create", "{res}")
+        .mode("Overwrite")
+        .save("{res}")
+                """.format(var=self.prev_var, res=p[2])
         p[0] = ""
 
     def p_fillnull(self, p):

@@ -22,7 +22,7 @@ def post_req(url, data=None, json=None, header=None):
     try:
         resp = reqsession.post(url, data=data, json=json, headers=header)
         if resp.status_code not in [200, 201]:
-            raise Exception(str(resp))
+            raise Exception(str(resp.content))
     except ConnectionError as ex:
         raise ex
     return resp
@@ -34,7 +34,7 @@ def put_req(url, data=None, json=None, header=None):
     try:
         resp = reqsession.put(url, data=data, json=json, headers=header)
         if resp.status_code not in [200, 201]:
-            raise Exception(str(resp))
+            raise Exception(str(resp.content))
     except ConnectionError as ex:
         raise ex
     return resp
@@ -46,7 +46,7 @@ def delete_req(url, data=None, header=None):
     try:
         resp = reqsession.delete(url, headers=header)
         if resp.status_code not in [200, 201]:
-            raise Exception(str(resp))
+            raise Exception(str(resp.content))
     except ConnectionError as ex:
         raise ex
     return resp

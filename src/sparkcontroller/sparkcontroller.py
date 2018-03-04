@@ -1,8 +1,6 @@
 from src.sparkcontroller.zp import Zp
 from src.sparkcontroller.livy import Livy
 import time
-import signal
-from src.utils.threader import threaded
 
 
 class SparkController(object):
@@ -23,48 +21,27 @@ class SparkController(object):
         pass
 
 
-stop = False
-
-
-def service_shutdown(signum, frame):
-    global stop
-    stop = True
-
-
-signal.signal(signal.SIGTERM, service_shutdown)
-signal.signal(signal.SIGINT, service_shutdown)
-#signal.signal(signal.SIGKILL, service_shutdown)
-
-
-@threaded
-def get_x_idle_sessions(x):
-    global stop
-    i = 0
-    while not stop:
-        i += 1
-        if i%4 == 0:
-            Livy.init_livy(force=True)
-        if x <= len(Livy.idles):
-            time.sleep(30)
-            continue
-        session = Livy.create_idle_session()
-        session_id = session["id"]
-        Livy.sessions[session_id] = session
-        Livy.idles.add(session_id)
-
-
 class SparkControllerLivy(object):
     lv = None
-    Ran = False
+    GET_TIME = time.time()
 
     @staticmethod
     def init():
         SparkControllerLivy.lv = Livy()
         SparkControllerLivy.lv.init_livy()
-        if SparkControllerLivy.Ran is False:
-            get_x_idle_sessions(2)
-            SparkControllerLivy.Ran = True
         return SparkControllerLivy
+
+    @staticmethod
+    def manage_livy_session(min_idle):
+        if time.time() - SparkControllerLivy.GET_TIME > 240:
+            Livy.init_livy(force=True)
+            SparkControllerLivy.GET_TIME = time.time()
+        if min_idle <= len(Livy.idles):
+            return 0
+        session = Livy.create_idle_session()
+        session_id = session["id"]
+        Livy.sessions[session_id] = session
+        Livy.idles.add(session_id)
 
     @staticmethod
     def post_search(search):
