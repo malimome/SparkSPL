@@ -1,9 +1,10 @@
 from src.sparser.parser_base import Parser
 from src.sparser.parse_source import source_query
+from src.sparser.command_param import *
 
 
 class MQL(Parser):
-    literals = r'+-*/%,()<>='
+    literals = r'+-*/%,()<>=[]'
     tokens = [
         'NAME', 'LITERAL',
         'NUMBER', 'FLOAT',
@@ -60,7 +61,6 @@ class MQL(Parser):
         "coalesce", "concat", "concat_ws", "greatest", "least",
     ]
     evalManyFuncs = {
-        "join": "concat_ws",
         "max": "greatest",
         "min": "least"
     }
@@ -126,6 +126,7 @@ class MQL(Parser):
 
     RESERVED = {
         "stats": "STATS",
+        "join": "JOIN",
         "window": "WINDOW",
         "by": "BY",
         "over": "OVER",
@@ -209,6 +210,7 @@ class MQL(Parser):
         self.udfs = set()
         self.earliest = earliest
         self.latest = latest
+        self.command = None
 
     def t_FLOAT(self,t):
         r'((\d*\.\d+)(E[\+-]?\d+)?|([1-9]\d*E[\+-]?\d+))'
@@ -252,12 +254,32 @@ class MQL(Parser):
         print("Illegal character '%s'" % t.value[0])
         t.lexer.skip(1)
 
+    def update_command(self, p, CmType, prefix=None, postfix=None):
+        self.command = CmType(
+            command=p[0],
+            command_name=p[1].lower(),
+            meta=self.meta,
+            prefix=prefix,
+            postfix=postfix,
+        )
+
+    def json_cp(self):
+        self.command = {"command": CPTerminal(
+            command="toJSON.collect().foreach(println)",
+            command_name=None,
+            meta=self.meta,
+            prefix=None,
+            postfix=None
+        ), "sub": None}
+        return self.command
+
     start = "statement"
 
     def p_source(self, p):
         """ statement : SOURCE '=' NAME
                      | SOURCE '=' NAME '(' LITERAL ')' """
         p[0] = source_query(p[3], self.earliest, self.latest)
+        self.update_command(p, CPSource)
         if len(p) == 7:
             self.meta["src_param"] = p[5]
 
@@ -269,25 +291,30 @@ class MQL(Parser):
             p[0] = "select({2})".format(*p)
         else:
             p[0] = "drop({2})".format(*p)
+        self.update_command(p, CPSingle)
 
-    #def p_join(self, p):
-    #    """ command : JOIN 'type' = NAME NAME [statement]"""
-    #    pass
-    # How to stop it DF here? Should it go to top?
+    def p_join(self, p):
+        """ statement : JOIN field-list """
+        # '[' statement ']'
+        p[0] = "join({parent_var}, Seq(%s))" % p[2]
+        self.update_command(p, CPCompound)
 
     def p_rename(self, p):
         """ statement : RENAME field-list-rename """
         p[0] = p[2]
+        self.update_command(p, CPSingle)
 
     def p_cache(self, p):
         """ statement : CACHE NAME """
         self.var = p[2]
         p[0] = ""
+        self.update_command(p, CPSingle)
 
 #    def p_inline(self, p):
 #        """ statement : INLINE '[' subquery ']' """
 #        # TODO store var here, do calcs and add it back to var.
 #        p[0] = ""
+    #   self.update_meta(p, type=INLINE)
 
     def p_save(self, p):
         """ statement : SAVE NAME """
@@ -302,6 +329,7 @@ class MQL(Parser):
 .save("{res}")
         """.format(var=self.prev_var, res="%s-/summary" % p[2])
         p[0] = ""
+        self.update_command(p, CPTerminal)
         #.mode("Overwrite")
 
     def p_drop(self, p):
@@ -321,21 +349,25 @@ class MQL(Parser):
     def p_fillnull(self, p):
         """ statement : FILLNULL VALUE '=' evalexpr field-list """
         # TODO fillnull - should accept both string and numbers
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_head(self, p):
         """ statement : HEAD NUMBER
                     | TOP NUMBER """
         p[0] = "limit({2})".format(*p)
+        self.update_command(p, CPSingle)
 
     def p_sort(self, p):
         """ statement : SORT field-list-order
                       | ORDERBY field-list-order """
         p[0] = "sort({2})".format(*p)
+        self.update_command(p, CPSingle)
 
     def p_eval(self, p):
         """ statement : EVAL eval-state """
         p[0] = p[2]
+        self.update_command(p, CPSingle)
 
     def p_eval_statement(self, p):
         """ eval-state : eval-state ',' eval-term
@@ -461,11 +493,13 @@ class MQL(Parser):
     def p_where(self, p):
         """ statement : WHERE evalexpr """
         p[0] = "filter({2})".format(*p)
+        self.update_command(p, CPSingle)
 
     def p_stats(self, p):
         """ statement : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
         p[0] = "groupBy({4}).agg({2})".format(*p)
+        self.update_command(p, CPSingle)
 
     def p_stats_clause(self, p):
         """ stats-agg-terms : stats-agg-terms ',' stats-agg-term
@@ -494,11 +528,11 @@ class MQL(Parser):
     def build_window_agg(self, stmts, p):
         self.imports.add("import org.apache.spark.sql.expressions.Window")
         self.imports.add("import org.apache.spark.sql.functions._")
-        wSpecName = "wS" + Parser.get_rand_string(7)
-        wSpecStr = "val {wSpec}=Window.".format(wSpec=wSpecName)
-        wSpecStr += stmts[len(p)].format(*p)
-        self.meta["before"] = wSpecStr
-        return p[2].format(wSpec=wSpecName)
+        #wSpecName = "wS" + Parser.get_rand_string(7)
+        #wSpecStr = "val {wSpec}=Window.".format(wSpec=wSpecName)
+        wSpecStr = "Window." + stmts[len(p)].format(*p)
+        #self.meta["before"] = wSpecStr
+        return wSpecStr
 
     def p_window(self, p):
         """ statement : WINDOW window-agg-terms OVER field-list ORDERBY field-list-order RANGE NUMBER TO NUMBER
@@ -511,7 +545,9 @@ class MQL(Parser):
             7: "partitionBy({4}).orderBy({6})",
             5: "partitionBy({4})"
         }
-        p[0] = self.build_window_agg(stmts, p)
+        p[0] = p[2]
+        wSpecStr = self.build_window_agg(stmts, p)
+        self.update_command(p, CPMulti, prefix=wSpecStr)
 
     def p_window_1(self, p):
         """ statement : WINDOW window-agg-terms OVER field-list ORDERBY field-list-order ROWS NUMBER TO NUMBER
@@ -522,7 +558,9 @@ class MQL(Parser):
             9: "partitionBy({4}).rowsBetween({7}, {9})",
             5: "orderBy({4})"
         }
-        p[0] = self.build_window_agg(stmts, p)
+        p[0] = p[2]
+        wSpecStr = self.build_window_agg(stmts, p)
+        self.update_command(p, CPMulti, prefix=wSpecStr)
 
     def p_window_clause(self, p):
         """ window-agg-terms : window-agg-terms ',' win-agg-term
@@ -595,26 +633,31 @@ class MQL(Parser):
     def p_lookup(self, p):
         """ statement : LOOKUP NAME """
         p[0] = 1
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_iploc(self, p):
         """ statement : IPLOC NAME """
         p[0] = 1
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_geoloc(self, p):
         """ statement : GEOLOC NAME """
         p[0] = 1
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_fit(self, p):
         """ statement : FIT NAME """
         p[0] = 1
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_apply(self, p):
         """ statement : APPLY NAME """
         p[0] = 1
+        self.update_command(p, CPSingle)
         raise NotImplemented
 
     def p_expression_name(self, p):
@@ -635,22 +678,6 @@ class MQL(Parser):
         else:
             print("Syntax error at EOF")
 
-    def post_process(self, ret):
-        if len(self.meta["caches"]) == 1:
-            return ret
-        rets = ret.split("\n")
-        caches = self.meta["caches"]
-        newret = ""
-        for ind in range(len(caches)):
-            if ind < len(caches) - 1:
-                cache = caches[ind + 1]
-            else:
-                cache = "df_out"
-            ret = rets[ind].replace(".{%s}" % cache, "")
-            newret += 'val {cache} = {df}{ret}\n'.format(cache=cache,
-                                                         ret=ret, df=caches[ind])
-        self.meta["caches"] = ["df"]
-        return newret
 
 if __name__ == '__main__':
     calc = MQL(earliest="now-d", latest="now")

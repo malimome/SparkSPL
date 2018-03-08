@@ -1,4 +1,4 @@
-from src.sparser.parser import MQL
+from src.sparser.parser import *
 
 
 def split_pipes(query):
@@ -36,40 +36,71 @@ val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     return search_str
 
 
-def transform_search(search):
-    subsearches = split_pipes(search)
+def buildCP(cparray, sub=False):
+    prev_var = ""
     subqueries = []
-    mql = MQL(earliest="now-d", latest="now")
+    for cpa in cparray:
+        cp = cpa["command"]
+        if cp.command_type != "CPCompound":
+            varname = cp.build(prev_var, subqueries)
+        else:
+            cpsub = cpa["sub"]
+            bcsub = buildCP(cpsub, sub=True)
+            subqueries.extend(bcsub[0])
+            cp.parent_var = bcsub[1]
+            varname = cp.build(prev_var, subqueries)
+        prev_var = varname
+    ret = ""
+    if sub:
+        ret = prev_var
+    return subqueries, ret
+
+
+def handle_subsearch(mql, subs):
+    bopos = subs.find('[')
+    # change to check if type is compound
+    if bopos > 0:
+        bepos = subs.rfind(']')
+        subsearch = subs[bopos+1: bepos]
+        subcom = trans(mql, subsearch)
+        mql.run(subs[:bopos])
+        subcommands =[{"command": mql.command, "sub": subcom}]
+    else:
+        mql.run(subs)
+        subcommands = [{"command": mql.command, "sub": []}]
+    return subcommands
+
+
+def trans(mql, search):
+    subsearches = split_pipes(search)
+    cparray = []
     for subs in subsearches:
-        subq = mql.build_line(mql.run(subs))
-        subqueries.append(subq)
-    subqueries.append(mql.gen_output())
-    spark_query = "\n".join(subqueries) #build_query(subqueries)
+        subqs = handle_subsearch(mql, subs)
+        cparray.extend(subqs)
+    return cparray
+
+
+def transform_search(search):
+    mql = MQL(earliest="now-d", latest="now")
+    cparray = trans(mql, search)
+    cparray.append(mql.json_cp())
+    subqueries = buildCP(cparray)[0]
+    #cparray.append(mql.gen_output())
+    spark_query = "\n".join(subqueries)
     end_query = build_end_query(spark_query, mql.meta, mql.imports, mql.udfs)
     #print(end_query)
     return end_query
 
 
-"""
-source=a 
+q = """
+source=filebeat 
 | stats count by p 
-| join p [source=b | table p, t | join [source=c | table p, c]]
+| eval test=rand()
+| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
+| join p,q [source=filebeat | eval t=rand() 
+| table p, t | join t [source=filebeat | table t, a] 
+| where t>5 ]
+| table p, q, t, a
 """
-"""
-val df = source(A)
-val df1 = df.stats
-val dfnew = source(b)
-val dfnew1 = dfnew.table
-val dfl = source(c)
-val dfl1 = dfl.table
-val dfnew2 = dfnew1.join(dfl1).on(p)
-val df2 = df1.join(dfnew2).one(p)
-"""
-
-"""
-only do gen_output if not subquery and is main
-also have modified end query
-"""
-
-
-
+e = transform_search(q)
+print(e)
