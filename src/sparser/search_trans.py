@@ -90,17 +90,3 @@ def transform_search(search):
     end_query = build_end_query(spark_query, mql.meta, mql.imports, mql.udfs)
     #print(end_query)
     return end_query
-
-
-q = """
-source=filebeat 
-| stats count by p 
-| eval test=rand()
-| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| join p,q [source=filebeat | eval t=rand() 
-| table p, t | join t [source=filebeat | table t, a] 
-| where t>5 ]
-| table p, q, t, a
-"""
-e = transform_search(q)
-print(e)
