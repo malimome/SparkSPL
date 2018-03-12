@@ -95,8 +95,10 @@ class CPTerminal(CommandParam):
         super(CPTerminal, self).__init__(**kargs)
 
     def build(self, prev_var, subqueries):
-        "toJSON.collect().foreach(println)"
-        subq = "{prev_var}.{sub}".format(prev_var=prev_var,
-                                         sub=self.command)
+        #"toJSON.collect().foreach(println)"
+        if self.prefix is not None:
+            subq = self.prefix.format(prev_var=prev_var)
+            subqueries.append(subq)
+        subq = self.command.format(prev_var=prev_var)
         subqueries.append(subq)
         return None

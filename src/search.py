@@ -41,16 +41,17 @@ class Search:
     def get_search_result(job, mode):
         r = job["internal_session"]
         data = None
+        types = None
         if mode != "blocking":
             result = Search.sc.get_result_async(r)
             if result["state"] == "available":
                 Search.sc.cleanup(r)
-                data = Search.prepare_output(result)
+                data, types = Search.prepare_output(result)
         else:
             result = Search.sc.get_result(r)
-            data = Search.prepare_output(result)
+            data, types = Search.prepare_output(result)
         Search.update_job(job, result)
-        return data
+        return data, types
 
     @staticmethod
     def cancel_job(job):
@@ -65,8 +66,9 @@ class Search:
         output = result['output']
         if output['status'] != 'ok':
             raise Exception("%s" % output['evalue'] if 'evalue' in output else "Error in query")
-        rdw = output['data']['text/plain']
-        rdw = "[" + rdw.replace("\n", ",") + "]"
-        data = json.loads(rdw)
+        rdw = "[" + output['data']['text/plain'].replace("\n", ",") + "]"
+        resp = json.loads(rdw)
+        types = resp[0] if len(resp) > 0 else None
+        data = resp[1:] if len(resp) > 1 else None
         del output['data']
-        return data
+        return data, types

@@ -63,35 +63,37 @@ class Jobs:
             raise Exception("Job %s does not exist" % job_id)
 
     @staticmethod
-    def _check_job_dump(job, result):
+    def _check_job_dump(job, result, types):
         if job["status"] != "finished":
             Jobs.jobs[job["job_id"]] = job
             return None
         Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
         jfs = st.FileStorage("jout/%s" % job["job_id"])
+        jfs.update("types", types)
         jfs.update("out", result)
 
     @staticmethod
     def _check_job_load(job):
         if job["status"] != "finished":
-            return None
+            return None, None
         jfs = st.FileStorage("jout/%s" % job["job_id"])
-        return jfs.getall()["out"]
+        all = jfs.getall()
+        return all["out"], all["types"]
 
     @staticmethod
     def get_job(job_id, mode="normal", offset=0, count=100000):
         job = Jobs._get_job(job_id)
         if job["status"] == "cancelled":
             return job
-        result = Jobs._check_job_load(job)
+        result, types = Jobs._check_job_load(job)
         if result is None:
-            result = Jobs.sch.get_search_result(job, mode)
-            Jobs._check_job_dump(job, result)
-        final = Jobs.build_result_response(job, result, offset, count)
+            result, types = Jobs.sch.get_search_result(job, mode)
+            Jobs._check_job_dump(job, result, types)
+        final = Jobs.build_result_response(job, result, types, offset, count)
         return final
 
     @staticmethod
-    def build_result_response(job, result, offset, count):
+    def build_result_response(job, result, types, offset, count):
         jobres = dict(job)
         if job["status"] == "finished":
             jobres["result"] = result[offset:offset+count]
@@ -100,7 +102,7 @@ class Jobs:
                 "total_count": len(result),
                 "return_count": len(jobres["result"]),
                 "return_offset": offset,
-                "fields": [],
+                "fields": types,
             }
             jobres["visualization"] = {
             }

@@ -273,6 +273,17 @@ class MQL(Parser):
         ), "sub": None}
         return self.command
 
+    def csv_cp(self):
+        pref = """var vartypes0001 = ""; for (f <- {prev_var}.schema.fields) vartypes0001 = vartypes0001 + "\\"" + f.name + "\\": \\"" + f.dataType.typeName + "\\", "; vartypes0001 = "{{" + vartypes0001.dropRight(2) + "}}" """
+        self.command = {"command": CPTerminal(
+            command="(vartypes0001 +: {prev_var}.toJSON.collect()).foreach(println)",
+            command_name=None,
+            meta=self.meta,
+            prefix=pref,
+            postfix=None
+        ), "sub": None}
+        return self.command
+
     start = "statement"
 
     def p_source(self, p):
@@ -314,6 +325,7 @@ class MQL(Parser):
 #        """ statement : INLINE '[' subquery ']' """
 #        # TODO store var here, do calcs and add it back to var.
 #        p[0] = ""
+    # do union command to append
     #   self.update_meta(p, type=INLINE)
 
     def p_save(self, p):
@@ -355,13 +367,13 @@ class MQL(Parser):
     def p_head(self, p):
         """ statement : HEAD NUMBER
                     | TOP NUMBER """
-        p[0] = "limit({2})".format(*p)
+        p[0] = "limit({2}).toDF".format(*p)
         self.update_command(p, CPSingle)
 
     def p_sort(self, p):
         """ statement : SORT field-list-order
                       | ORDERBY field-list-order """
-        p[0] = "sort({2})".format(*p)
+        p[0] = "sort({2}).toDF".format(*p)
         self.update_command(p, CPSingle)
 
     def p_eval(self, p):

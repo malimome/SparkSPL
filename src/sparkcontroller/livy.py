@@ -5,7 +5,7 @@ from src.utils.threader import threaded
 
 class Livy:
     LVURL = "http://localhost:8998"
-    headers = {'Content-Type': 'application/json'}
+    headers = {} #{'Content-Type': 'application/json'}
     sessions = {}
     idles = set()
 
