@@ -5,7 +5,7 @@ from pprint import pprint
 
 
 headers = {'Content-Type': 'application/json'}
-#URL = "http://sparkify.novelsec.com"
+URL = "http://sparkify.novelsec.com"
 URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
@@ -103,7 +103,7 @@ def post_job_get(q, cancel=False):
     ret = get_jobid(job, 15, 5)
     print("after loop2")
     ret = get_jobid(job, 20, 5)
-    #del_jobid(job)
+    del_jobid(job)
 
 
 if __name__ == '__main__':

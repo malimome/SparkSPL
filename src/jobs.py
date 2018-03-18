@@ -125,6 +125,10 @@ class Jobs:
     @staticmethod
     def stop_job(job_id):
         job = Jobs._get_job(job_id)
+        if "testing" in job and job["testing"] == "y":
+            tjob = dict(job)
+            tjob["status"] = "cancelled"
+            return tjob
         if job["status"] == "cancelled":
             return job
         result = Jobs.sch.cancel_job(job)
@@ -138,6 +142,9 @@ class Jobs:
 
     @staticmethod
     def del_job(job_id):
+        job = Jobs._get_job(job_id)
+        if "testing" in job and job["testing"] == "y":
+            return 0
         jfs = st.FileStorage("jout/%s" % job_id)
         jfs.hard_delete_file()
         Jobs.jobs = Jobs.jstorage.delete(job_id)
