@@ -18,6 +18,7 @@ class Api(BaseApi):
         return ''
 
 
+core_loop()
 app = Flask(__name__)
 #app.config['RESTPLUS_VALIDATE'] = settings.RESTPLUS_VALIDATE
 #app.config['SERVER_NAME'] = settings.FLASK_SERVER_NAME
@@ -25,7 +26,6 @@ app = Flask(__name__)
 #app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
 api = Api(app, version='1.2', title="Porseh", description="Porseh service.", doc='/doc/')
 # TODO create a user session and tie Livy sessions to it.
-core_loop()
 
 
 def print_debug(ex):
@@ -89,7 +89,8 @@ job_post = api.model('Job', {
     'priority': fields.String(reuquired=False, enum=["normal", "low", "high"],
                 default="normal", description="low, normal or high (medium is default)."),
     'mode': fields.String(reuquired=False, enum=["normal", "blocking"],
-                default="normal", description="blocking or normal")
+                default="normal", description="blocking or normal"),
+    'testing': fields.String(required=False, description='Set to y in test mode.')
 })
 
 
@@ -112,6 +113,9 @@ class Jobs(Resource):
         """ run a query and add it as job """
         result = {}
         try:
+            if settings.FLASK_DEBUG:
+                if "testing" in api.payload and api.payload["testing"] == "y":
+                    return jb.get_test_job()
             job_ = jb.add_job(api.payload)
             jb.post_job(job_)
             if api.payload["mode"] != "blocking":

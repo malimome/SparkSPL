@@ -11,6 +11,13 @@ source=filebeat
 | rename c as c2, g as g2 | head 1000
 | save summary_test
 """
+    q= """
+source=filebeat("t")
+| eval group = offset % 5, rn = rand()
+| sort group desc, @timestamp desc
+| head 15
+| stats count as c, values(@timestamp) as vt by group
+"""
     print(transform_search(q))
     return ""
 

@@ -7,12 +7,16 @@ def build_job(qind = 0, earliest='now-d', latest='now'):
     queries = [
         """
 source=filebeat("t")
-| eval group = offset % 20, rn = rand()
+| eval group = offset % 5, rn = rand()
 | sort group desc, @timestamp desc
-| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| rename c as c2, g as g2
-        """
+| head 15
+| stats count as c, values(@timestamp) as vt by group
+"""
     ]
+    a = """
+    | window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
+    | rename c as c2, g as g2
+            """
     job_post = {
         'query': queries[qind],
         'earliest': earliest,
@@ -45,20 +49,19 @@ def test_get_post_job():
     # ------- Check job status async
     i = 0
     while job["status"] != "finished":
-        job, result = jb.get_job_async(job_id)
+        final = jb.get_job(job_id)
         nice_print(job, "job async %d" % i)
         i += 1
         if job["status"] != "finished":
             time.sleep(2)
-    jres = jb.build_result_response(job, result)
-    del jres["result"]
-    nice_print(jres, "job full")
-    print("RESULTS: %d" % jres["result_summary"]["count"])
+
+    nice_print(final, "job full")
+    print("RESULTS: %d" % final["result_summary"]["count"])
     # ------- Get job result again blocking
-    job, result = jb.get_job(job_id)
-    nice_print(job, "job blocking")
-    print("RESULTS: %d" % len(result))
-    jres = jb.build_result_response(job, result)
+    #job, result = jb.get_job(job_id)
+    #nice_print(job, "job blocking")
+    #print("RESULTS: %d" % len(result))
+    #jres = jb.build_result_response(job, result)
     # ------- Delete job
     ret = jb.del_job(job_id)
     nice_print(ret, "delete job")

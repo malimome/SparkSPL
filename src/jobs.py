@@ -53,6 +53,18 @@ class Jobs:
         Jobs.jobs = Jobs.jstorage.add(job_id, job)
         return job
 
+    @staticmethod
+    def get_test_job():
+        import random
+        test_jobs = []
+        for job_id in Jobs.jobs:
+            job = Jobs.jobs[job_id]
+            if job["testing"] == "y":
+                test_jobs.append(job)
+        tjob = dict(random.choice(test_jobs))
+        tjob["status"] = "started"
+        tjob["progress"] = 0
+        return tjob
 
     @staticmethod
     def _get_job(job_id):

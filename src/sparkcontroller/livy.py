@@ -27,9 +27,9 @@ class Livy:
         data = {
             'kind': 'spark', 'proxyUser': 'user',
             'driverCores': 2, 'executorCores': 2,
-            #'driverMemory': '', 'executorMemory': ''
+            #'driverMemory': '', 'executorMemory': '', 'heartbeatTimeoutInSecond': 6*60*60
         }
-        data = {}
+        data = {'proxyUser': 'user'}
         r = wr.post_req(Livy.session_url(), data=None, json=data, header=Livy.headers)
         session_id = r.json()["id"]
         return session_id

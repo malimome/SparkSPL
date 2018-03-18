@@ -532,9 +532,10 @@ class MQL(Parser):
         stmts = {
             7: "{1}({3}).alias(\"{6}\")",
             5: "{1}({3})",
-            4: "count(lit(1)).alias(\"{3}\"",
+            4: "count(lit(1)).alias(\"{3}\")",
             2: "count(lit(1))"
         }
+        p[1] = MQL.Statsfunctions.get(p[1], p[1])
         p[0] = stmts[len(p)].format(*p)
 
     def build_window_agg(self, stmts, p):

@@ -5,7 +5,7 @@ from pprint import pprint
 
 
 headers = {'Content-Type': 'application/json'}
-URL = "http://sparkify.novelsec.com"
+#URL = "http://sparkify.novelsec.com"
 URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
@@ -81,7 +81,8 @@ def post_job_get(q, cancel=False):
       "mode": "normal",
       "earliest": "now-d",
       "priority": "normal",
-      "latest": "now"
+      "latest": "now",
+      "testing": "y"
     }
     job = post_jobs(query)
     # ------
@@ -102,16 +103,18 @@ def post_job_get(q, cancel=False):
     ret = get_jobid(job, 15, 5)
     print("after loop2")
     ret = get_jobid(job, 20, 5)
-    del_jobid(job)
+    #del_jobid(job)
 
 
 if __name__ == '__main__':
-    q= """source=filebeat 
-| eval group = offset % 20, rn = rand()
-| sort group desc, @timestamp desc
-| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| rename c as c2, g as g2 | head 1000
+    q= """source=filebeat | table offset, @timestamp
+| eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25
+| sort @timestamp desc
 """
+
+#| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
+#| rename c as c2, g as g2 | head 1000
+#"""
     # | save summary_test
     #q = "source=filebeat | head 3"
     #job = {
