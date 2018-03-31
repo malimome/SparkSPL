@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, session
 from flask_restplus import Resource, Api as BaseApi, fields
 from webargs import fields as wfields, validate
 from webargs.flaskparser import use_kwargs#, parser
@@ -40,6 +40,11 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
     response.headers.add('server', 'Porseh')
     return response
+
+
+@app.before_request
+def before_request():
+    print(session, request)
 
 
 @api.route('/')

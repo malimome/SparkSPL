@@ -32,15 +32,15 @@ class access_log(object):
         self.f = f
 
     def __call__(self, *args):
-        print(*args)
-        argarr = [str(i) for i in args]
-        lg.log(logging.INFO, ",".join(argarr))
-        self.f(*args)
+        print(*args, self.f.__name__)
+        #argarr = [str(i) for i in args]
+        #lg.log(logging.INFO, ",".join(argarr))
+        return self.f(*args)
 
 
 @access_log
 def func1(t ,a ,b):
-    print(t)
+    return a+b
 
 
-func1("test", 1 ,2)
+print(func1("test", 1 ,2))
