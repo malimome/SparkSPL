@@ -1,0 +1,201 @@
+{
+  "paragraphs": [
+    {
+      "text": "val sqlContext \u003d new org.apache.spark.sql.SQLContext(sc)\nimport org.apache.spark.sql.functions._\nimport org.apache.spark.sql.expressions.Window\n\nval dfuji4gx1 \u003d spark.read.format(\"org.elasticsearch.spark.sql\").option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\").option(\"es.read.field.empty.as.null\",\"true\").option(\"es.index.read.missing.as.empty\",\"true\").option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\").option(\"es.read.field.exclude\", \"prospector,beat,tags\").option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"now-d\", \"lt\":\"now\"}}}}\"\"\").load(\"filebeat-*\").sort(desc(\"@timestamp\"))\nval dfh156gm4 \u003d dfuji4gx1.withColumn(\"group\",$\"offset\"%lit(20)).withColumn(\"rn\",rand())\nval dfki6yo2x \u003d dfh156gm4.sort($\"group\".desc, $\"@timestamp\".desc)\nval wShrq3ezp\u003dWindow.partitionBy(\"group\").orderBy($\"@timestamp\".desc).rowsBetween(-1, 1)\nval dfnfcpwb4 \u003d dfki6yo2x.withColumn(\"c\", first(\"rn\").over(wShrq3ezp)).withColumn(\"g\", last(\"rn\").over(wShrq3ezp))\nval dfcc5p5t1 \u003d dfnfcpwb4.withColumnRenamed(\"c\", \"c2\").withColumnRenamed(\"g\", \"g2\")\nval dfbqdc0mw \u003d dfcc5p5t1.limit(1000)\ndfbqdc0mw.write.format(\"org.elasticsearch.spark.sql\")\n.option(\"es.nodes\" , \"localhost\")\n.option(\"es.port\",\"9200\")\n.option(\"es.index.auto.create\",\"true\")\n.option(\"es.nodes.wan.only\",\"true\")\n.option(\"es.resouce.auto.create\", \"summary/test\")\n.mode(\"Append\")\n.save(\"summary/test\")\n        \nval dfzb0cqw9 \u003d dfbqdc0mw\ndfzb0cqw9.toJSON.collect().foreach(println)",
+      "user": "anonymous",
+      "dateUpdated": "Mar 15, 2018 3:25:09 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "ERROR",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "warning: there was one deprecation warning; re-run with -deprecation for details\nsqlContext: org.apache.spark.sql.SQLContext \u003d org.apache.spark.sql.SQLContext@6859baef\nimport org.apache.spark.sql.functions._\nimport org.apache.spark.sql.expressions.Window\ndfuji4gx1: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [@timestamp: timestamp, @version: string ... 4 more fields]\ndfh156gm4: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 6 more fields]\ndfki6yo2x: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [@timestamp: timestamp, @version: string ... 6 more fields]\nwShrq3ezp: org.apache.spark.sql.expressions.WindowSpec \u003d org.apache.spark.sql.expressions.WindowSpec@2b45566f\ndfnfcpwb4: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 8 more fields]\ndfcc5p5t1: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 8 more fields]\ndfbqdc0mw: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [@timestamp: timestamp, @version: string ... 8 more fields]\norg.apache.spark.SparkException: Job aborted due to stage failure: Task 0 in stage 116.0 failed 1 times, most recent failure: Lost task 0.0 in stage 116.0 (TID 8309, localhost, executor driver): org.elasticsearch.hadoop.rest.EsHadoopInvalidRequest: Found unrecoverable error [localhost:9200] returned Bad Request(400) - Rejecting mapping update to [summary] as the final mapping would have more than 1 type: [test, filebeat]; Bailing out..\n\tat org.elasticsearch.hadoop.rest.RestClient.processBulkResponse(RestClient.java:251)\n\tat org.elasticsearch.hadoop.rest.RestClient.bulk(RestClient.java:203)\n\tat org.elasticsearch.hadoop.rest.RestRepository.tryFlush(RestRepository.java:248)\n\tat org.elasticsearch.hadoop.rest.RestRepository.flush(RestRepository.java:270)\n\tat org.elasticsearch.hadoop.rest.RestRepository.doWriteToIndex(RestRepository.java:224)\n\tat org.elasticsearch.hadoop.rest.RestRepository.writeToIndex(RestRepository.java:187)\n\tat org.elasticsearch.spark.rdd.EsRDDWriter.write(EsRDDWriter.scala:67)\n\tat org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n\tat org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n\tat org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:108)\n\tat org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n\tat java.lang.Thread.run(Thread.java:748)\n\nDriver stacktrace:\n  at org.apache.spark.scheduler.DAGScheduler.org$apache$spark$scheduler$DAGScheduler$$failJobAndIndependentStages(DAGScheduler.scala:1517)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1505)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1504)\n  at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)\n  at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:1504)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at scala.Option.foreach(Option.scala:257)\n  at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:1732)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1687)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1676)\n  at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.runJob(DAGScheduler.scala:630)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2029)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2050)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2082)\n  at org.elasticsearch.spark.sql.EsSparkSQL$.saveToEs(EsSparkSQL.scala:101)\n  at org.elasticsearch.spark.sql.ElasticsearchRelation.insert(DefaultSource.scala:586)\n  at org.elasticsearch.spark.sql.DefaultSource.createRelation(DefaultSource.scala:103)\n  at org.apache.spark.sql.execution.datasources.DataSource.write(DataSource.scala:469)\n  at org.apache.spark.sql.execution.datasources.SaveIntoDataSourceCommand.run(SaveIntoDataSourceCommand.scala:50)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.sideEffectResult$lzycompute(commands.scala:58)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.sideEffectResult(commands.scala:56)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.doExecute(commands.scala:74)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$execute$1.apply(SparkPlan.scala:117)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$execute$1.apply(SparkPlan.scala:117)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$executeQuery$1.apply(SparkPlan.scala:138)\n  at org.apache.spark.rdd.RDDOperationScope$.withScope(RDDOperationScope.scala:151)\n  at org.apache.spark.sql.execution.SparkPlan.executeQuery(SparkPlan.scala:135)\n  at org.apache.spark.sql.execution.SparkPlan.execute(SparkPlan.scala:116)\n  at org.apache.spark.sql.execution.QueryExecution.toRdd$lzycompute(QueryExecution.scala:92)\n  at org.apache.spark.sql.execution.QueryExecution.toRdd(QueryExecution.scala:92)\n  at org.apache.spark.sql.DataFrameWriter.runCommand(DataFrameWriter.scala:609)\n  at org.apache.spark.sql.DataFrameWriter.save(DataFrameWriter.scala:233)\n  at org.apache.spark.sql.DataFrameWriter.save(DataFrameWriter.scala:217)\n  ... 66 elided\nCaused by: org.elasticsearch.hadoop.rest.EsHadoopInvalidRequest: Found unrecoverable error [localhost:9200] returned Bad Request(400) - Rejecting mapping update to [summary] as the final mapping would have more than 1 type: [test, filebeat]; Bailing out..\n  at org.elasticsearch.hadoop.rest.RestClient.processBulkResponse(RestClient.java:251)\n  at org.elasticsearch.hadoop.rest.RestClient.bulk(RestClient.java:203)\n  at org.elasticsearch.hadoop.rest.RestRepository.tryFlush(RestRepository.java:248)\n  at org.elasticsearch.hadoop.rest.RestRepository.flush(RestRepository.java:270)\n  at org.elasticsearch.hadoop.rest.RestRepository.doWriteToIndex(RestRepository.java:224)\n  at org.elasticsearch.hadoop.rest.RestRepository.writeToIndex(RestRepository.java:187)\n  at org.elasticsearch.spark.rdd.EsRDDWriter.write(EsRDDWriter.scala:67)\n  at org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n  at org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n  at org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n  at org.apache.spark.scheduler.Task.run(Task.scala:108)\n  at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n  ... 3 more\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1519716766150_-1511184505",
+      "id": "20180227-073246_1103783162",
+      "dateCreated": "Feb 27, 2018 7:32:46 AM",
+      "dateStarted": "Feb 27, 2018 7:34:52 AM",
+      "dateFinished": "Feb 27, 2018 7:35:17 AM",
+      "status": "ERROR",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "val sqlContext \u003d new org.apache.spark.sql.SQLContext(sc)\n\n\nval df1ogqtyo \u003d spark.read.format(\"org.elasticsearch.spark.sql\").option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\").option(\"es.read.field.empty.as.null\",\"true\").option(\"es.index.read.missing.as.empty\",\"true\").option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\").option(\"es.read.field.exclude\", \"prospector,beat,tags\").option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"now-d\", \"lt\":\"now\"}}}}\"\"\").load(\"filebeat-*\").sort(desc(\"@timestamp\"))\nval df25g0o51 \u003d df1ogqtyo.withColumn(\"group\",$\"offset\"%lit(5)).withColumn(\"rn\",rand())\nval dflyjjmvu \u003d df25g0o51.sort($\"group\".desc, $\"@timestamp\".desc).toDF\nval dfrkuur0o \u003d dflyjjmvu.limit(15).toDF\nval dfrtr637y \u003d dfrkuur0o.groupBy(\"group\").agg(count(lit(1)).alias(\"c\"), collect_set(\"@timestamp\").alias(\"vt\"))\ndfrtr637y.cache()\n\n//dfrtr637y.write.format(\"org.elasticsearch.spark.sql\")\n//.option(\"es.nodes\" , \"localhost\")\n//.option(\"es.port\",\"9200\")\n//.option(\"es.index.auto.create\",\"true\")\n//.option(\"es.nodes.wan.only\",\"true\")\n//.option(\"es.resouce.auto.create\", \"summary/test\")\n//.mode(\"Overwrite\")\n//.save(\"test_summary/test\")\n\n//var vartypes0001 \u003d \"\"; for (f \u003c- dfrtr637y.schema.fields) vartypes0001 \u003d vartypes0001 + \"\\\"\" + f.name + \"\\\": \\\"\" + f.dataType.typeName + \"\\\", \"; vartypes0001 \u003d \"{\" + vartypes0001.dropRight(2) + \"}\" \n//(vartypes0001 +: dfrtr637y.toJSON.collect()).foreach(println)",
+      "user": "anonymous",
+      "dateUpdated": "Mar 14, 2018 6:22:17 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "warning: there was one deprecation warning; re-run with -deprecation for details\nsqlContext: org.apache.spark.sql.SQLContext \u003d org.apache.spark.sql.SQLContext@3cd5cff9\ndf1ogqtyo: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [@timestamp: timestamp, @version: string ... 9 more fields]\ndf25g0o51: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 10 more fields]\ndflyjjmvu: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 10 more fields]\ndfrkuur0o: org.apache.spark.sql.DataFrame \u003d [@timestamp: timestamp, @version: string ... 10 more fields]\ndfrtr637y: org.apache.spark.sql.DataFrame \u003d [group: bigint, c: bigint ... 1 more field]\nres1370: dfrtr637y.type \u003d [group: bigint, c: bigint ... 1 more field]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1519716769488_-1405763306",
+      "id": "20180227-073249_459080355",
+      "dateCreated": "Feb 27, 2018 7:32:49 AM",
+      "dateStarted": "Mar 14, 2018 6:22:17 AM",
+      "dateFinished": "Mar 14, 2018 6:22:57 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "val arr2str \u003d udf((arr: Seq[String]) \u003d\u003e arr.mkString(\",\"))\n//val zipper \u003d udf[Seq[(String, Double)], Seq[String], Seq[Double]](_.zip(_))\n/*val df \u003d Seq(\n  (\"john\", \"tomato\", 1.99),\n  (\"john\", \"carrot\", 0.45),\n  (\"bill\", \"apple\", 0.99),\n  (\"john\", \"banana\", 1.29),\n  (\"bill\", \"taco\", 2.59)\n).toDF(\"name\", \"food\", \"price\")\nval df2 \u003d df.groupBy(\"name\").agg(\n  collect_list(col(\"food\")) as \"food\",\n  collect_list(col(\"price\")) as \"price\" \n).withColumn(\"food\", zipper(col(\"food\"), col(\"price\"))).drop(\"price\")\n */\n//val newDf \u003d dfrtr637y.withColumn(\"vt1\", arr2str($\"vt\")).drop(\"vt\")\nval newDf \u003d dfrtr637y.withColumn(\"vt1\", concat_ws(\",\", $\"vt\")).drop(\"vt\")\n\nvar vartypes0001 \u003d \"\"; for (f \u003c- newDf.schema.fields) vartypes0001 \u003d vartypes0001 + \"\\\"\" + f.name + \"\\\": \\\"\" + f.dataType.typeName + \"\\\", \"; vartypes0001 \u003d \"{\" + vartypes0001.dropRight(2) + \"}\" \n(vartypes0001 +: newDf.toJSON.collect()).foreach(println)",
+      "user": "anonymous",
+      "dateUpdated": "Mar 14, 2018 7:32:54 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "arr2str: org.apache.spark.sql.expressions.UserDefinedFunction \u003d UserDefinedFunction(\u003cfunction1\u003e,StringType,Some(List(ArrayType(StringType,true))))\nnewDf: org.apache.spark.sql.DataFrame \u003d [group: bigint, c: bigint ... 1 more field]\nvartypes0001: String \u003d {\"group\": \"long\", \"c\": \"long\", \"vt1\": \"string\"}\nvartypes0001: String \u003d {\"group\": \"long\", \"c\": \"long\", \"vt1\": \"string\"}\n{\"group\": \"long\", \"c\": \"long\", \"vt1\": \"string\"}\n{\"group\":4,\"c\":15,\"vt1\":\"2018-03-14 05:21:32.693,2018-03-14 06:34:07.795,2018-03-14 05:21:07.692,2018-03-14 06:25:07.779,2018-03-14 03:57:27.575,2018-03-14 06:15:57.767,2018-03-14 03:00:00.495,2018-03-14 06:04:47.751,2018-03-14 03:57:52.576,2018-03-14 05:37:07.714,2018-03-14 06:17:02.769,2018-03-14 04:41:07.636,2018-03-14 03:43:47.556,2018-03-14 05:20:02.691,2018-03-14 03:17:10.517\"}\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1521008558969_1307521679",
+      "id": "20180314-062238_1267092210",
+      "dateCreated": "Mar 14, 2018 6:22:38 AM",
+      "dateStarted": "Mar 14, 2018 7:32:54 AM",
+      "dateFinished": "Mar 14, 2018 7:33:01 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "\n\n\nval df \u003d spark.read.format(\"org.elasticsearch.spark.sql\").option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\").option(\"es.read.field.empty.as.null\",\"true\").option(\"es.index.read.missing.as.empty\",\"true\").option(\"es.field.read.as.array.include\", \"nested.bar\").option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\").option(\"es.read.field.exclude\", \"prospector,beat,tags\").option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"now-d\", \"lt\":\"now\"}}}}\"\"\").load(\"test_summary/test\")\ndf.show()",
+      "user": "anonymous",
+      "dateUpdated": "Mar 14, 2018 7:39:02 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "ERROR",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "df: org.apache.spark.sql.DataFrame \u003d [c: bigint, group: bigint ... 1 more field]\norg.apache.spark.SparkException: Job aborted due to stage failure: Task 2 in stage 508.0 failed 1 times, most recent failure: Lost task 2.0 in stage 508.0 (TID 32310, localhost, executor driver): java.lang.ClassCastException: scala.collection.convert.Wrappers$JListWrapper cannot be cast to java.lang.Long\n\tat scala.runtime.BoxesRunTime.unboxToLong(BoxesRunTime.java:105)\n\tat org.apache.spark.sql.catalyst.expressions.BaseGenericInternalRow$class.getLong(rows.scala:42)\n\tat org.apache.spark.sql.catalyst.expressions.GenericInternalRow.getLong(rows.scala:194)\n\tat org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIterator.processNext(Unknown Source)\n\tat org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)\n\tat org.apache.spark.sql.execution.WholeStageCodegenExec$$anonfun$8$$anon$1.hasNext(WholeStageCodegenExec.scala:395)\n\tat org.apache.spark.sql.execution.SparkPlan$$anonfun$2.apply(SparkPlan.scala:234)\n\tat org.apache.spark.sql.execution.SparkPlan$$anonfun$2.apply(SparkPlan.scala:228)\n\tat org.apache.spark.rdd.RDD$$anonfun$mapPartitionsInternal$1$$anonfun$apply$25.apply(RDD.scala:827)\n\tat org.apache.spark.rdd.RDD$$anonfun$mapPartitionsInternal$1$$anonfun$apply$25.apply(RDD.scala:827)\n\tat org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:38)\n\tat org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:323)\n\tat org.apache.spark.rdd.RDD.iterator(RDD.scala:287)\n\tat org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:108)\n\tat org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n\tat java.lang.Thread.run(Thread.java:748)\n\nDriver stacktrace:\n  at org.apache.spark.scheduler.DAGScheduler.org$apache$spark$scheduler$DAGScheduler$$failJobAndIndependentStages(DAGScheduler.scala:1517)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1505)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1504)\n  at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)\n  at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:1504)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at scala.Option.foreach(Option.scala:257)\n  at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:1732)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1687)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1676)\n  at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.runJob(DAGScheduler.scala:630)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2029)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2050)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2069)\n  at org.apache.spark.sql.execution.SparkPlan.executeTake(SparkPlan.scala:336)\n  at org.apache.spark.sql.execution.CollectLimitExec.executeCollect(limit.scala:38)\n  at org.apache.spark.sql.Dataset.org$apache$spark$sql$Dataset$$collectFromPlan(Dataset.scala:2861)\n  at org.apache.spark.sql.Dataset$$anonfun$head$1.apply(Dataset.scala:2150)\n  at org.apache.spark.sql.Dataset$$anonfun$head$1.apply(Dataset.scala:2150)\n  at org.apache.spark.sql.Dataset$$anonfun$55.apply(Dataset.scala:2842)\n  at org.apache.spark.sql.execution.SQLExecution$.withNewExecutionId(SQLExecution.scala:65)\n  at org.apache.spark.sql.Dataset.withAction(Dataset.scala:2841)\n  at org.apache.spark.sql.Dataset.head(Dataset.scala:2150)\n  at org.apache.spark.sql.Dataset.take(Dataset.scala:2363)\n  at org.apache.spark.sql.Dataset.showString(Dataset.scala:241)\n  at org.apache.spark.sql.Dataset.show(Dataset.scala:637)\n  at org.apache.spark.sql.Dataset.show(Dataset.scala:596)\n  at org.apache.spark.sql.Dataset.show(Dataset.scala:605)\n  ... 102 elided\nCaused by: java.lang.ClassCastException: scala.collection.convert.Wrappers$JListWrapper cannot be cast to java.lang.Long\n  at scala.runtime.BoxesRunTime.unboxToLong(BoxesRunTime.java:105)\n  at org.apache.spark.sql.catalyst.expressions.BaseGenericInternalRow$class.getLong(rows.scala:42)\n  at org.apache.spark.sql.catalyst.expressions.GenericInternalRow.getLong(rows.scala:194)\n  at org.apache.spark.sql.catalyst.expressions.GeneratedClass$GeneratedIterator.processNext(Unknown Source)\n  at org.apache.spark.sql.execution.BufferedRowIterator.hasNext(BufferedRowIterator.java:43)\n  at org.apache.spark.sql.execution.WholeStageCodegenExec$$anonfun$8$$anon$1.hasNext(WholeStageCodegenExec.scala:395)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$2.apply(SparkPlan.scala:234)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$2.apply(SparkPlan.scala:228)\n  at org.apache.spark.rdd.RDD$$anonfun$mapPartitionsInternal$1$$anonfun$apply$25.apply(RDD.scala:827)\n  at org.apache.spark.rdd.RDD$$anonfun$mapPartitionsInternal$1$$anonfun$apply$25.apply(RDD.scala:827)\n  at org.apache.spark.rdd.MapPartitionsRDD.compute(MapPartitionsRDD.scala:38)\n  at org.apache.spark.rdd.RDD.computeOrReadCheckpoint(RDD.scala:323)\n  at org.apache.spark.rdd.RDD.iterator(RDD.scala:287)\n  at org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n  at org.apache.spark.scheduler.Task.run(Task.scala:108)\n  at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n  ... 3 more\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1520925901300_-316524510",
+      "id": "20180313-072501_155998420",
+      "dateCreated": "Mar 13, 2018 7:25:01 AM",
+      "dateStarted": "Mar 14, 2018 7:36:43 AM",
+      "dateFinished": "Mar 14, 2018 7:36:47 AM",
+      "status": "ERROR",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "val data \u003d sc.esRDD(\"test_summary/test\")\ndata",
+      "user": "anonymous",
+      "dateUpdated": "Mar 14, 2018 7:43:09 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "ERROR",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "data: org.apache.spark.rdd.RDD[(String, scala.collection.Map[String,AnyRef])] \u003d ScalaEsRDD[1501] at RDD at AbstractEsRDD.scala:37\njava.lang.UnsupportedOperationException: No Encoder found for scala.AnyRef\n- map value class: \"java.lang.Object\"\n- field (class: \"scala.collection.Map\", name: \"_2\")\n- root class: \"scala.Tuple2\"\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:632)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:455)\n  at scala.reflect.internal.tpe.TypeConstraints$UndoLog.undo(TypeConstraints.scala:56)\n  at org.apache.spark.sql.catalyst.ScalaReflection$class.cleanUpReflectionObjects(ScalaReflection.scala:809)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.cleanUpReflectionObjects(ScalaReflection.scala:39)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor(ScalaReflection.scala:455)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1$$anonfun$apply$3.apply(ScalaReflection.scala:522)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1$$anonfun$apply$3.apply(ScalaReflection.scala:522)\n  at org.apache.spark.sql.catalyst.expressions.objects.ExternalMapToCatalyst$.apply(objects.scala:683)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:516)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:455)\n  at scala.reflect.internal.tpe.TypeConstraints$UndoLog.undo(TypeConstraints.scala:56)\n  at org.apache.spark.sql.catalyst.ScalaReflection$class.cleanUpReflectionObjects(ScalaReflection.scala:809)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.cleanUpReflectionObjects(ScalaReflection.scala:39)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor(ScalaReflection.scala:455)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1$$anonfun$10.apply(ScalaReflection.scala:626)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1$$anonfun$10.apply(ScalaReflection.scala:614)\n  at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)\n  at scala.collection.TraversableLike$$anonfun$flatMap$1.apply(TraversableLike.scala:241)\n  at scala.collection.immutable.List.foreach(List.scala:381)\n  at scala.collection.TraversableLike$class.flatMap(TraversableLike.scala:241)\n  at scala.collection.immutable.List.flatMap(List.scala:344)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:614)\n  at org.apache.spark.sql.catalyst.ScalaReflection$$anonfun$org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor$1.apply(ScalaReflection.scala:455)\n  at scala.reflect.internal.tpe.TypeConstraints$UndoLog.undo(TypeConstraints.scala:56)\n  at org.apache.spark.sql.catalyst.ScalaReflection$class.cleanUpReflectionObjects(ScalaReflection.scala:809)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.cleanUpReflectionObjects(ScalaReflection.scala:39)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.org$apache$spark$sql$catalyst$ScalaReflection$$serializerFor(ScalaReflection.scala:455)\n  at org.apache.spark.sql.catalyst.ScalaReflection$.serializerFor(ScalaReflection.scala:444)\n  at org.apache.spark.sql.catalyst.encoders.ExpressionEncoder$.apply(ExpressionEncoder.scala:71)\n  at org.apache.spark.sql.Encoders$.product(Encoders.scala:275)\n  at org.apache.spark.sql.LowPrioritySQLImplicits$class.newProductEncoder(SQLImplicits.scala:233)\n  at org.apache.spark.sql.SQLImplicits.newProductEncoder(SQLImplicits.scala:33)\n  ... 102 elided\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1521007479753_1008051883",
+      "id": "20180314-060439_889762256",
+      "dateCreated": "Mar 14, 2018 6:04:39 AM",
+      "dateStarted": "Mar 14, 2018 7:42:59 AM",
+      "dateFinished": "Mar 14, 2018 7:43:03 AM",
+      "status": "ERROR",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "user": "anonymous",
+      "config": {},
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1521013215945_-322779836",
+      "id": "20180314-074015_2080213504",
+      "dateCreated": "Mar 14, 2018 7:40:15 AM",
+      "status": "READY",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "test",
+  "id": "2D6HY77YQ",
+  "angularObjects": {
+    "2D33Y9BX5:shared_process": []
+  },
+  "config": {},
+  "info": {}
+}

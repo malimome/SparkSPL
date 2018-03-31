@@ -1,0 +1,276 @@
+{
+  "paragraphs": [
+    {
+      "text": "\nval input\u003d sqlContext.range(0, 100000)\nval dfin \u003d input.withColumn(\"rn\",rand()).withColumn(\"rnd\",randn()).withColumn(\"grp\",when((col(\"id\")%3 \u003d\u003d\u003d 0), \"grp0\").otherwise(when((col(\"id\")%3 \u003d\u003d\u003d 1), \"grp1\").otherwise(\"grp2\")))\nval df0 \u003d dfin.withColumn(\"ctx\",when((col(\"id\")%4 \u003d\u003d\u003d 0), \"ctx0\").otherwise(when((col(\"id\")%4 \u003d\u003d\u003d 1), \"ctx1\").otherwise(\"ctx2\")))",
+      "user": "anonymous",
+      "dateUpdated": "Mar 17, 2018 4:47:34 PM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "input: org.apache.spark.sql.DataFrame \u003d [id: bigint]\ndfin: org.apache.spark.sql.DataFrame \u003d [id: bigint, rn: double ... 2 more fields]\ndf0: org.apache.spark.sql.DataFrame \u003d [id: bigint, rn: double ... 3 more fields]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1520728851559_-1103020585",
+      "id": "20180311-004051_1482377762",
+      "dateCreated": "Mar 11, 2018 12:40:51 AM",
+      "dateStarted": "Mar 17, 2018 4:47:34 PM",
+      "dateFinished": "Mar 17, 2018 4:48:01 PM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// stats, eval and where\nval df1 \u003d df0.groupBy(\"grp\").agg(sum(\"rn\").alias(\"mval\"), count(lit(1)).alias(\"mcount\"), approx_count_distinct(\"id\").alias(\"dcid\"), collect_set(\"ctx\").alias(\"ctxset\"), first(\"id\").alias(\"fid\"))\nval df11 \u003d df1.withColumn(\"nval\", round(exp(sin($\"mval\"))+ $\"mcount\")).withColumn(\"v1\", concat($\"grp\", lit(\"-s\"))).sort($\"mval\".desc)\nval df2 \u003d df11.filter($\"mval\" \u003e 21)\n",
+      "user": "anonymous",
+      "dateUpdated": "Mar 8, 2018 4:47:02 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "df1: org.apache.spark.sql.DataFrame \u003d [grp: string, mval: double ... 4 more fields]\ndf11: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [grp: string, mval: double ... 6 more fields]\ndf2: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row] \u003d [grp: string, mval: double ... 6 more fields]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1517803145849_-1259809800",
+      "id": "20180205-035905_116225746",
+      "dateCreated": "Feb 5, 2018 3:59:05 AM",
+      "dateStarted": "Mar 8, 2018 4:47:02 AM",
+      "dateFinished": "Mar 8, 2018 4:47:04 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "// lookup and join\ncase class Event(grp: String, dcid: Integer, out: String)\nval lookup \u003d sqlContext.createDataFrame(Event(\"grp0\", 36250, \"foo\") :: Event(\"grp1\", 36250, \"bar\") :: Event(\"grp2\", 33979, \"test\") :: Nil)\nval df3 \u003d df2.join(lookup, Seq(\"grp\", \"dcid\")).withColumnRenamed(\"out\", \"v4\")\n\nval df4 \u003d df3.withColumn(\"exid\", explode($\"ctxset\"))\ndf4.drop(\"ctxset\").show()",
+      "user": "anonymous",
+      "dateUpdated": "Mar 8, 2018 5:18:35 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "defined class Event\nlookup: org.apache.spark.sql.DataFrame \u003d [grp: string, dcid: int ... 1 more field]\ndf3: org.apache.spark.sql.DataFrame \u003d [grp: string, dcid: bigint ... 7 more fields]\ndf4: org.apache.spark.sql.DataFrame \u003d [grp: string, dcid: bigint ... 8 more fields]\n+----+-----+-----------------+------+---+-------+------+----+----+\n| grp| dcid|             mval|mcount|fid|   nval|    v1|  v4|exid|\n+----+-----+-----------------+------+---+-------+------+----+----+\n|grp1|36250|16698.02552531688| 33333|  1|33334.0|grp1-s| bar|ctx2|\n|grp1|36250|16698.02552531688| 33333|  1|33334.0|grp1-s| bar|ctx1|\n|grp1|36250|16698.02552531688| 33333|  1|33334.0|grp1-s| bar|ctx0|\n|grp2|33979|16666.31867128012| 33333|  2|33334.0|grp2-s|test|ctx2|\n|grp2|33979|16666.31867128012| 33333|  2|33334.0|grp2-s|test|ctx1|\n|grp2|33979|16666.31867128012| 33333|  2|33334.0|grp2-s|test|ctx0|\n+----+-----+-----------------+------+---+-------+------+----+----+\n\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1517803420856_-161950454",
+      "id": "20180205-040340_1472594087",
+      "dateCreated": "Feb 5, 2018 4:03:40 AM",
+      "dateStarted": "Mar 8, 2018 5:18:35 AM",
+      "dateFinished": "Mar 8, 2018 5:18:39 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "println(\"##result##\")\n/*\ndf4.take(6) // top 6 rows\ndf4.columns  // array of column names\ndf4.dtypes   // Returns all column names and their data types as an array\ndf4.explain  //Only prints the physical plan to the console for debugging purpose.\ndf4.intersect(df3)  //Returns a new DataFrame containing rows only in both this frame and another frame.\ndf4.sample(withReplacement\u003dFalse, fraction\u003d0.5, seed\u003d45734857)\ndf4.unionAll(df3)  // Returns a new DataFrame containing union of rows in this frame and another frame.\n\n*/\n\n//df4.toJSON.collect().foreach(println)\n//df4.toJSON.collect().foreach(println)\ndf4.show()\n//df4.write.format(\"com.databricks.spark.csv\")\ndf0.drop(\"ctxset\").write.format(\"org.elasticsearch.spark.sql\")\n.option(\"es.nodes\" , \"localhost\")\n.option(\"es.port\",\"9200\")\n.option(\"es.index.auto.create\",\"true\")\n.option(\"es.nodes.wan.only\",\"true\")\n.mode(\"Append\")\n.save(\"filebeat-summary1\")",
+      "user": "anonymous",
+      "dateUpdated": "Feb 28, 2018 5:47:01 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "ERROR",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "##result##\n+----+------------------+------+-----+------------------+---+-------+------+----+----+\n| grp|              mval|mcount| dcid|            ctxset|fid|   nval|    v1|  v4|exid|\n+----+------------------+------+-----+------------------+---+-------+------+----+----+\n|grp2|  16672.4651477706| 33333|33979|[ctx2, ctx1, ctx0]|  2|33334.0|grp2-s|test|ctx2|\n|grp2|  16672.4651477706| 33333|33979|[ctx2, ctx1, ctx0]|  2|33334.0|grp2-s|test|ctx1|\n|grp2|  16672.4651477706| 33333|33979|[ctx2, ctx1, ctx0]|  2|33334.0|grp2-s|test|ctx0|\n|grp1|16640.511148178637| 33333|36250|[ctx2, ctx1, ctx0]|  1|33335.0|grp1-s| bar|ctx2|\n|grp1|16640.511148178637| 33333|36250|[ctx2, ctx1, ctx0]|  1|33335.0|grp1-s| bar|ctx1|\n|grp1|16640.511148178637| 33333|36250|[ctx2, ctx1, ctx0]|  1|33335.0|grp1-s| bar|ctx0|\n|grp0|16607.341620164392| 33334|30174|[ctx2, ctx1, ctx0]|  0|33336.0|grp0-s| foo|ctx2|\n|grp0|16607.341620164392| 33334|30174|[ctx2, ctx1, ctx0]|  0|33336.0|grp0-s| foo|ctx1|\n|grp0|16607.341620164392| 33334|30174|[ctx2, ctx1, ctx0]|  0|33336.0|grp0-s| foo|ctx0|\n+----+------------------+------+-----+------------------+---+-------+------+----+----+\n\norg.apache.spark.SparkException: Job aborted due to stage failure: Task 1 in stage 249.0 failed 1 times, most recent failure: Lost task 1.0 in stage 249.0 (TID 14445, localhost, executor driver): org.elasticsearch.hadoop.EsHadoopIllegalArgumentException: No type found; Types are required when writing. Expected [index]/[type], but got [filebeat-summary1]\n\tat org.elasticsearch.hadoop.rest.Resource.\u003cinit\u003e(Resource.java:78)\n\tat org.elasticsearch.hadoop.rest.RestService.createWriter(RestService.java:592)\n\tat org.elasticsearch.spark.rdd.EsRDDWriter.write(EsRDDWriter.scala:58)\n\tat org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n\tat org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n\tat org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n\tat org.apache.spark.scheduler.Task.run(Task.scala:108)\n\tat org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n\tat java.lang.Thread.run(Thread.java:748)\n\nDriver stacktrace:\n  at org.apache.spark.scheduler.DAGScheduler.org$apache$spark$scheduler$DAGScheduler$$failJobAndIndependentStages(DAGScheduler.scala:1517)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1505)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$abortStage$1.apply(DAGScheduler.scala:1504)\n  at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)\n  at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.abortStage(DAGScheduler.scala:1504)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGScheduler$$anonfun$handleTaskSetFailed$1.apply(DAGScheduler.scala:814)\n  at scala.Option.foreach(Option.scala:257)\n  at org.apache.spark.scheduler.DAGScheduler.handleTaskSetFailed(DAGScheduler.scala:814)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.doOnReceive(DAGScheduler.scala:1732)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1687)\n  at org.apache.spark.scheduler.DAGSchedulerEventProcessLoop.onReceive(DAGScheduler.scala:1676)\n  at org.apache.spark.util.EventLoop$$anon$1.run(EventLoop.scala:48)\n  at org.apache.spark.scheduler.DAGScheduler.runJob(DAGScheduler.scala:630)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2029)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2050)\n  at org.apache.spark.SparkContext.runJob(SparkContext.scala:2082)\n  at org.elasticsearch.spark.sql.EsSparkSQL$.saveToEs(EsSparkSQL.scala:101)\n  at org.elasticsearch.spark.sql.ElasticsearchRelation.insert(DefaultSource.scala:586)\n  at org.elasticsearch.spark.sql.DefaultSource.createRelation(DefaultSource.scala:103)\n  at org.apache.spark.sql.execution.datasources.DataSource.write(DataSource.scala:469)\n  at org.apache.spark.sql.execution.datasources.SaveIntoDataSourceCommand.run(SaveIntoDataSourceCommand.scala:50)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.sideEffectResult$lzycompute(commands.scala:58)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.sideEffectResult(commands.scala:56)\n  at org.apache.spark.sql.execution.command.ExecutedCommandExec.doExecute(commands.scala:74)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$execute$1.apply(SparkPlan.scala:117)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$execute$1.apply(SparkPlan.scala:117)\n  at org.apache.spark.sql.execution.SparkPlan$$anonfun$executeQuery$1.apply(SparkPlan.scala:138)\n  at org.apache.spark.rdd.RDDOperationScope$.withScope(RDDOperationScope.scala:151)\n  at org.apache.spark.sql.execution.SparkPlan.executeQuery(SparkPlan.scala:135)\n  at org.apache.spark.sql.execution.SparkPlan.execute(SparkPlan.scala:116)\n  at org.apache.spark.sql.execution.QueryExecution.toRdd$lzycompute(QueryExecution.scala:92)\n  at org.apache.spark.sql.execution.QueryExecution.toRdd(QueryExecution.scala:92)\n  at org.apache.spark.sql.DataFrameWriter.runCommand(DataFrameWriter.scala:609)\n  at org.apache.spark.sql.DataFrameWriter.save(DataFrameWriter.scala:233)\n  at org.apache.spark.sql.DataFrameWriter.save(DataFrameWriter.scala:217)\n  ... 66 elided\nCaused by: org.elasticsearch.hadoop.EsHadoopIllegalArgumentException: No type found; Types are required when writing. Expected [index]/[type], but got [filebeat-summary1]\n  at org.elasticsearch.hadoop.rest.Resource.\u003cinit\u003e(Resource.java:78)\n  at org.elasticsearch.hadoop.rest.RestService.createWriter(RestService.java:592)\n  at org.elasticsearch.spark.rdd.EsRDDWriter.write(EsRDDWriter.scala:58)\n  at org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n  at org.elasticsearch.spark.sql.EsSparkSQL$$anonfun$saveToEs$1.apply(EsSparkSQL.scala:101)\n  at org.apache.spark.scheduler.ResultTask.runTask(ResultTask.scala:87)\n  at org.apache.spark.scheduler.Task.run(Task.scala:108)\n  at org.apache.spark.executor.Executor$TaskRunner.run(Executor.scala:338)\n  ... 3 more\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1517803430212_186662698",
+      "id": "20180205-040350_658849994",
+      "dateCreated": "Feb 5, 2018 4:03:50 AM",
+      "dateStarted": "Feb 28, 2018 5:47:01 AM",
+      "dateFinished": "Feb 28, 2018 5:47:03 AM",
+      "status": "ERROR",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "val df4555 \u003d spark.read.format(\"org.elasticsearch.spark.sql\").option(\"es.nodes\", \"localhost\").option(\"es.port\", \"9200\")\n.option(\"es.read.field.empty.as.null\",\"true\").option(\"es.index.read.missing.as.empty\",\"true\")\n.option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}}}\"\"\")\n.load(\"filebeat-summary/test\")\ndf4555.show()",
+      "user": "anonymous",
+      "dateUpdated": "Feb 28, 2018 5:31:13 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "df4555: org.apache.spark.sql.DataFrame \u003d [ctx: string, grp: string ... 3 more fields]\n+----+----+---+-----------+-----------+\n| ctx| grp| id|         rn|        rnd|\n+----+----+---+-----------+-----------+\n|ctx2|grp0|  3| 0.12755445|  0.9370051|\n|ctx2|grp0|  6| 0.64154494|-0.68898696|\n|ctx0|grp0| 12| 0.96029955|-0.41151494|\n|ctx0|grp1| 16| 0.15635987|  1.4391621|\n|ctx1|grp0| 21| 0.60601085|  1.2020497|\n|ctx2|grp1| 34|  0.5711488|  0.3304382|\n|ctx2|grp2| 35| 0.13716795|-0.59492624|\n|ctx0|grp0| 36|  0.6045897|  1.2511295|\n|ctx0|grp0| 48|0.025954112| 0.61787474|\n|ctx1|grp1| 49| 0.86797124| 0.30006897|\n|ctx2|grp2| 50|  0.9644267| 0.30358034|\n|ctx2|grp0| 54| 0.69229066| -1.6704949|\n|ctx0|grp0| 60| 0.14612949| 0.25740436|\n|ctx2|grp1| 67|  0.9531508| -1.2330297|\n|ctx0|grp0| 72| 0.39525795|  1.1821707|\n|ctx1|grp1| 73| 0.17262419| -1.3468769|\n|ctx2|grp2| 74| 0.74902165|-0.50813735|\n|ctx2|grp2| 83|  0.5426966|  1.0354004|\n|ctx2|grp0| 90| 0.58092034| 0.56151485|\n|ctx2|grp1| 91| 0.49405277|  0.5480038|\n+----+----+---+-----------+-----------+\nonly showing top 20 rows\n\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1519624731837_1691912269",
+      "id": "20180226-055851_2024580100",
+      "dateCreated": "Feb 26, 2018 5:58:51 AM",
+      "dateStarted": "Feb 28, 2018 5:31:13 AM",
+      "dateFinished": "Feb 28, 2018 5:31:13 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "text": "import org.apache.spark.sql.expressions.Window\nimport org.apache.spark.sql.functions._\n//val wSpec \u003d Window.partitionBy(\"exid\").orderBy(\"grp\").rowsBetween(Long.MinValue, 0)  //-1 , 1\nval wSpec \u003d Window.partitionBy(\"exid\").orderBy(\"grp\").rowsBetween(-1, 1)  //-1 , 1\n//val wSpec \u003d Window.partitionBy(\"exid\").orderBy(\"grp\")\n//val wSpec \u003d Window.partitionBy(\"exid\").orderBy(\"grp\").rangeBetween(-10, 10)\n//df4.withColumn(\"rn\", (rand())).withColumn( \"movingAvg\", avg(\"fid\").over(wSpec)).show()\n//df4.withColumn(\"prev_fid\", lag(\"fid\", 1).over(wSpec)).show()\n//df4.withColumn( \"rank\", rank().over(wSpec)).show()\n\ndf4.groupBy(window(df4.col(\"mcount\"), 1, 1, 2).agg(avg(\"fid\").as(\"weekly_average\")).show()\n",
+      "user": "anonymous",
+      "dateUpdated": "Feb 26, 2018 8:11:09 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "INCOMPLETE",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "import org.apache.spark.sql.expressions.Window\nimport org.apache.spark.sql.functions._\nwSpec: org.apache.spark.sql.expressions.WindowSpec \u003d org.apache.spark.sql.expressions.WindowSpec@289a5bfc\n"
+          },
+          {
+            "type": "TEXT",
+            "data": "Incomplete expression"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1517818356357_-999316034",
+      "id": "20180205-081236_1557989049",
+      "dateCreated": "Feb 5, 2018 8:12:36 AM",
+      "dateStarted": "Feb 26, 2018 8:11:09 AM",
+      "dateFinished": "Feb 26, 2018 8:11:09 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "title": "Regex, string operators",
+      "text": "import org.apache.spark.sql.functions.regexp_extract\ncase class Event(grp:89*9*/526 String, out: String)\nval dfre \u003d sqlContext.createDataFrame(Event(\"test disconnect 13322 user\", \"iddd134\") :: Event(\"test connect narges\", \"ie2545\") :: Event(\"user nect mfd3 id1\", \"sdfsdf3246\") :: Nil)\n\ndfre.withColumn(\"id\", regexp_extract($\"out\", \"\"\"(\\w+)(\\d+)\"\"\", 1)).withColumn(\"idrep\", regexp_replace($\"out\", \"\"\"\\d+\"\"\", \"-\")).toJSON.collect().foreach(println)\n\nprint(\"filter\\n\")\ndfre.filter($\"grp\" rlike \"\"\".*\\d+.*\"\"\").toJSON.collect().foreach(println)\nprint(\"filter\\n\")\ndfre.filter($\"grp\".contains(\"connect\")).toJSON.collect().foreach(println)\nprint(\"filter\\n\")\ndfre.filter($\"grp\" like \"_e%na%\").toJSON.collect().foreach(println)",
+      "user": "anonymous",
+      "dateUpdated": "Feb 12, 2018 6:52:44 AM",
+      "config": {
+        "colWidth": 12.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala"
+        },
+        "editorMode": "ace/mode/scala",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "import org.apache.spark.sql.functions.regexp_extract\ndefined class Event\ndfre: org.apache.spark.sql.DataFrame \u003d [grp: string, out: string]\n{\"grp\":\"test disconnect 13322 user\",\"out\":\"iddd134\",\"id\":\"iddd13\",\"idrep\":\"iddd-\"}\n{\"grp\":\"test connect narges\",\"out\":\"ie2545\",\"id\":\"ie254\",\"idrep\":\"ie-\"}\n{\"grp\":\"user nect mfd3 id1\",\"out\":\"sdfsdf3246\",\"id\":\"sdfsdf324\",\"idrep\":\"sdfsdf-\"}\nfilter\n{\"grp\":\"test disconnect 13322 user\",\"out\":\"iddd134\"}\n{\"grp\":\"user nect mfd3 id1\",\"out\":\"sdfsdf3246\"}\nfilter\n{\"grp\":\"test disconnect 13322 user\",\"out\":\"iddd134\"}\n{\"grp\":\"test connect narges\",\"out\":\"ie2545\"}\nfilter\n{\"grp\":\"test connect narges\",\"out\":\"ie2545\"}\n"
+          }
+        ]
+      },
+      "apps": [],
+      "jobName": "paragraph_1517804809793_1662549088",
+      "id": "20180205-042649_1083305491",
+      "dateCreated": "Feb 5, 2018 4:26:49 AM",
+      "dateStarted": "Feb 12, 2018 6:52:35 AM",
+      "dateFinished": "Feb 12, 2018 6:52:39 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "user": "anonymous",
+      "config": {},
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1521006939971_-1861771550",
+      "id": "20180314-055539_1191885450",
+      "dateCreated": "Mar 14, 2018 5:55:39 AM",
+      "status": "READY",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "language_summary",
+  "id": "2D71URVWQ",
+  "angularObjects": {
+    "2D33Y9BX5:shared_process": []
+  },
+  "config": {},
+  "info": {}
+}
