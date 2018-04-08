@@ -1,0 +1,16 @@
+server {
+    listen 80;
+    server_name your.server.example.com;
+    access_log /var/log/nginx/sparkify_access.log;
+    error_log /var/log/nginx/sparkify_error.log error;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:/var/www/sparkify/sparkify.sock;
+    }
+    location ^~ /swagger/ {
+        access_log off;
+        log_not_found off;
+    }
+}
+
