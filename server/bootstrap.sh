@@ -1,3 +1,7 @@
+read -p "Starting the process, press enter to confirm!"
+read -p "Check nginx IP, run in byobu!"
+sudo apt-get update 
+sudo apt-get upgrade -y 
 sudo apt-get install -y vim git default-jdk 
 
 read -p "Press enter to set JAVA and SPARK home"
@@ -7,7 +11,7 @@ export SPARK_HOME=$HOME/spark-2.2.1/
 read -p "Press enter to install python, pip and get the code"
 sudo apt-get install -y python3-pip python3-dev nginx ufw
 #git clone https://github.com/malimome/sparkify_server --depth=1
-pip3 install --upgrade pip3
+pip3 install --upgrade pip
 sudo pip3 install uwsgi flask
 sudo pip3 install requests ply webargs flask_restplus
 
@@ -30,18 +34,19 @@ echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
 echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.conf
 
 read -p "Press enter to install the service (check uwsgi path)"
-sudo cp sparkify_server/*.service /etc/systemd/system/
+sudo cp sparkify_server/server/*.service /etc/systemd/system/
 
 sudo cp -r sparkify_server/ /var/www/sparkify
 sudo chown -R www-data:www-data /var/www/sparkify
 sudo mkdir /var/log/uwsgi
-sudo chown -R www-data:www-data /var/log/uwsgi/sparkify.log
+sudo touch /var/log/uwsgi/sparkify.log
+sudo chown -R www-data:www-data /var/log/uwsgi/
 sudo systemctl start sparkify
 sudo systemctl enable sparkify
 
 read -p "Press enter to install the site!"
 read -p "Ensure the nginx IP is correct"
-sudo cp /var/www/sparkify/sparkify.nginx /etc/nginx/sites-available/sparkify
+sudo cp /var/www/sparkify/server/sparkify.nginx /etc/nginx/sites-available/sparkify
 sudo ln -s /etc/nginx/sites-available/sparkify /etc/nginx/sites-enabled
 
 read -p "Ensure the nginx file is correct"
@@ -50,12 +55,12 @@ sudo nginx -t
 sudo systemctl restart nginx
 
 read -p "Press enter to set UFW"
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+#sudo ufw default deny incoming
+#sudo ufw default allow outgoing
 
-sudo ufw allow 22
-sudo ufw limit 22
-sudo ufw allow 80
+#sudo ufw allow 22
+#sudo ufw limit 22
+#sudo ufw allow 80
 
-sudo ufw enable
+#sudo ufw enable
 
