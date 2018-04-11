@@ -3,6 +3,10 @@
 echo "start spark 7077"
 unset HADOOP_CONF_DIR
 ~/spark-2.2.1/sbin/start-master.sh
+~/spark-2.2.1/sbin/start-slave.sh spark://localhost:7077
+export SPARK_HOME=/home/user/spark-2.2.1
+#~/spark-2.3.0/sbin/start-master.sh
+#~/spark-2.3.0/sbin/start-slave.sh spark://localhost:7077
 ~/spark-2.2.1/sbin/start-slave.sh spark://spark-master.example.internal:7077
 echo "start zeppelin 8998"
 ~/zeppelin-0.7.3/bin/zeppelin-daemon.sh start

@@ -4,7 +4,7 @@
 #~/kibana-6.0.1-linux-x86_64/bin/kibana &
 #http://localhost:5601
 
-~/logstash-6.0.0/bin/logstash -f ~/logstash-6.0.0/bfpipe.conf --config.reload.automatic &
+~/logstash-6.0.0/bin/logstash -f ~/logstash-6.0.0/bfpipe.conf --config.reload.automatic > /dev/null &
 
-sudo ./filebeat-6.0.0-linux-x86_64/filebeat -e -c ./filebeat-6.0.0-linux-x86_64/filebeat.yml &
+sudo ./filebeat-6.0.0-linux-x86_64/filebeat -e -c ./filebeat-6.0.0-linux-x86_64/filebeat.yml > /dev/null &
 
