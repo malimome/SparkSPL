@@ -13,9 +13,17 @@ class Jobs:
     def init():
         if Jobs.jstorage is None:
             Jobs.jstorage = st.JINIStorage("jobs.conf")
-            Jobs.jobs = Jobs.jstorage.getall()
+            Jobs.get_alljobs()
             Jobs.sch = Search().init()
         return Jobs
+
+    @staticmethod
+    def get_alljobs():
+        Jobs.jobs = Jobs.jstorage.getall()
+        for job_id in list(Jobs.jobs.keys()):
+            job = Jobs.jobs[job_id]
+            if "expiry_time" in job and int(job["expiry_time"]) < int(time.time()):
+                Jobs.del_job(job_id)
 
     @staticmethod
     def job_loop():
@@ -23,6 +31,7 @@ class Jobs:
 
     @staticmethod
     def get_jobs():
+        Jobs.get_alljobs()
         return Jobs.jobs
 
     @staticmethod

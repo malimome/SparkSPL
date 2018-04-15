@@ -6,7 +6,7 @@ from pprint import pprint
 
 headers = {'Content-Type': 'application/json'}
 URL = "http://sparkify.novelsec.com"
-#ftest_api.pyURL = "http://127.0.0.1:5000"
+#URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
 

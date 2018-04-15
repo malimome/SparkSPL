@@ -88,7 +88,7 @@ class INIStorage(Storage):
             with open(self.file, 'w') as configfile:
                 config.write(configfile)
         except Exception as ex:
-            raise Exception("Error in writing config file %s: %s" % self.file, str(ex))
+            raise Exception("Error in writing config file %s: %s" % (self.file, str(ex)))
 
 
 class JINIStorage(INIStorage):
