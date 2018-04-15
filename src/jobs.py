@@ -59,7 +59,7 @@ class Jobs:
         test_jobs = []
         for job_id in Jobs.jobs:
             job = Jobs.jobs[job_id]
-            if job["testing"] == "y":
+            if "testing" in job and job["testing"] == "y":
                 test_jobs.append(job)
         tjob = dict(random.choice(test_jobs))
         tjob["status"] = "started"

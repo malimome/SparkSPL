@@ -82,8 +82,9 @@ def post_job_get(q, cancel=False):
       "earliest": "now-d",
       "priority": "normal",
       "latest": "now",
-      "testing": "y"
+      "testing": "n"
     }
+    #"testing": "y"
     job = post_jobs(query)
     # ------
     jstat = get_jobid(job)
@@ -111,6 +112,12 @@ if __name__ == '__main__':
 | eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25
 | sort @timestamp desc
 """
+    q1 = """source=range1000
+    | eval rn = rand() % 20, rn2=rand() % 25
+    | eval group = rn2 % 10
+    | table group, rn, rn2
+    | sort rn2
+    """
 
 #| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
 #| rename c as c2, g as g2 | head 1000

@@ -102,6 +102,9 @@ source=filebeat
 | table p, t | join t [source=filebeat | table t, a] 
 | where t>5 ]
 | table p, q, t, a
-e = transform_search(q)
-print(e)
 """
+q = """source=filebeat | table offset, @timestamp
+| eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25
+| sort @timestamp desc"""
+#e = transform_search(q)
+#print(e)

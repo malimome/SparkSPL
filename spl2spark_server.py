@@ -140,15 +140,18 @@ class JobId(Resource):
     args = {
         'mode': wfields.Str(
             required=False,
+            missing='normal',
             choices=('blocking', 'normal'),
             validate=validate.OneOf(['blocking', 'normal']),
         ),
         'offset': wfields.Int(
             required=False,
+            missing=0,
             validate=validate.Range(0, 999999999999999999, "Offset over limit")
         ),
         'count': wfields.Int(
             required=False,
+            missing=10000,
             validate=validate.Range(0, 100000, "Count over limit")
         )
     }

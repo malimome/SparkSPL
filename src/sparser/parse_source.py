@@ -6,7 +6,8 @@ source_inits = {
                ".option(\"es.read.field.empty.as.null\",\"true\")"
                ".option(\"es.index.read.missing.as.empty\",\"true\")"
                ".option(\"es.mapping.include\", \"beat.*, prospector.*, tags.*\")"
-               ".option(\"es.read.field.exclude\", \"prospector,beat,tags\")"
+               ".option(\"es.read.field.exclude\", \"prospector,beat,tags\")",
+    "generative": "sqlContext.range(0, 10000)"
 }
 
 
@@ -20,4 +21,6 @@ def source_query(source_id, earliest, latest):
         sourceq += "\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
                         % (earliest, latest)
         sourceq += ".load(\"{index}-*\").sort(desc(\"@timestamp\"))".format(index=source_id)
+    else:
+        sourceq = source_inits[source["type"]]
     return sourceq
