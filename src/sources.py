@@ -34,6 +34,8 @@ class Source:
         }
 
     def get_source(self, source_id):
+        if source_id not in self.sources:
+            raise Exception("Source %s does not exist" % source_id)
         source = self.sources[source_id]
         return source
 

@@ -488,6 +488,19 @@ class MQL(Parser):
         }
         p[0] = stmts[len(p)].format(*p)
 
+    def p_evalexpr_relts(self, p):
+        """ evalexpr : relative_time '(' NAME ',' NAME ')' """
+        map = {
+            "m": 60,
+            "h": 60*60,
+            "d": 60*60*24,
+            "w": 60*60*24*7,
+            "M": 60*60*24*30,
+            "y": 60*60*24*365
+        }
+        p[5] = map[p[5]]
+        p[0] = "round(${3} / {5})*{5}".format(*p)
+
     def p_evalexpr_group(self, p):
         """ evalexpr : '(' evalexpr ')' """
         p[0] = '({2})'.format(*p)

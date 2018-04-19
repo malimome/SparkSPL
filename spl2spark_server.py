@@ -120,7 +120,7 @@ class Jobs(Resource):
         try:
             if settings.FLASK_DEBUG:
                 if "testing" in api.payload and api.payload["testing"] == "y":
-                    return jb.get_test_job()
+                    return jb.post_test_job()
             job_ = jb.add_job(api.payload)
             jb.post_job(job_)
             if api.payload["mode"] != "blocking":

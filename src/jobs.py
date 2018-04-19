@@ -63,7 +63,7 @@ class Jobs:
         return job
 
     @staticmethod
-    def get_test_job():
+    def post_test_job():
         import random
         test_jobs = []
         for job_id in Jobs.jobs:
@@ -73,6 +73,7 @@ class Jobs:
         tjob = dict(random.choice(test_jobs))
         tjob["status"] = "started"
         tjob["progress"] = 0
+        Jobs.jobs = Jobs.jstorage.update(tjob["job_id"], tjob)
         return tjob
 
     @staticmethod
@@ -94,6 +95,19 @@ class Jobs:
         jfs.update("out", result)
 
     @staticmethod
+    def get_test_job(job):
+        if "testing" in job and job["testing"] == "y":
+            if job["progress"] == "0":
+                job["progress"] = 50;
+                job["status"] = "runnig"
+            else:
+                job["progress"] = 100;
+                job["status"] = "finished"
+            Jobs.jobs = Jobs.jstorage.update(job["job_id"], job)
+            return True
+        return False
+
+    @staticmethod
     def _check_job_load(job):
         if job["status"] != "finished":
             return None, None
@@ -106,8 +120,9 @@ class Jobs:
         job = Jobs._get_job(job_id)
         if job["status"] == "cancelled":
             return job
+        test = Jobs.get_test_job(job)
         result, types = Jobs._check_job_load(job)
-        if result is None:
+        if result is None and not test:
             result, types = Jobs.sch.get_search_result(job, mode)
             Jobs._check_job_dump(job, result, types)
         final = Jobs.build_result_response(job, result, types, offset, count)
