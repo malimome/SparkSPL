@@ -5,8 +5,9 @@ from pprint import pprint
 
 
 headers = {'Content-Type': 'application/json'}
-URL = "http://sparkify.novelsec.com"
-URL = "http://127.0.0.1:5000"
+#URL = "http://sparkify.novelsec.com"
+URL = "http://server.novelsec.com"
+#URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
 
@@ -82,7 +83,7 @@ def post_job_get(q, cancel=False):
       "earliest": "now-d",
       "priority": "normal",
       "latest": "now",
-      "testing": "y"
+      #"testing": "y"
     }
     #"testing": "y"
     job = post_jobs(query)

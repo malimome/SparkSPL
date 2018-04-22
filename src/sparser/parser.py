@@ -46,9 +46,8 @@ class MQL(Parser):
         "format_number", "format_string", "nanvl",
         "add_months", "date_add", "date_sub", "date_diff", "date_format", "from_unixtime",
         "last_day", "months_between", "next_day", "trunc",
-
-        "instr", "levenshtein", "repeat", "shiftLeft", "shiftRight", "split",
-        #"locate"
+        "instr", "levenshtein", "repeat", "shiftLeft", "shiftRight", "split"
+        #"locate", "relative_time"
     ]
     evalTwoArgFuncs = {
         "strpos": "instr",
@@ -119,8 +118,7 @@ class MQL(Parser):
         "now": "NOW",
         # datediff, to_date, months_between
         # to_date(unix_timestamp(lit("2017-12-11"), dateFormat).cast("timestamp"))
-        # to_timestamp(date, ‘yyyy-dd-MM’),
-        "relative_time": "RELATIVE_TIME",
+        # to_timestamp(date, ‘yyyy-dd-MM’)
     }
     """
 
@@ -488,18 +486,18 @@ class MQL(Parser):
         }
         p[0] = stmts[len(p)].format(*p)
 
-    def p_evalexpr_relts(self, p):
-        """ evalexpr : relative_time '(' NAME ',' NAME ')' """
-        map = {
-            "m": 60,
-            "h": 60*60,
-            "d": 60*60*24,
-            "w": 60*60*24*7,
-            "M": 60*60*24*30,
-            "y": 60*60*24*365
-        }
-        p[5] = map[p[5]]
-        p[0] = "round(${3} / {5})*{5}".format(*p)
+    #def p_evalexpr_relts(self, p):
+    #    """ evalexpr : relative_time '(' NAME ',' NAME ')' """
+    #    map = {
+    #        "m": 60,
+    #        "h": 60*60,
+    #        "d": 60*60*24,
+    #        "w": 60*60*24*7,
+    #        "M": 60*60*24*30,
+    #        "y": 60*60*24*365
+    #    }
+    #    p[5] = map[p[5]]
+    #    p[0] = "round(${3} / {5})*{5}".format(*p)
 
     def p_evalexpr_group(self, p):
         """ evalexpr : '(' evalexpr ')' """
