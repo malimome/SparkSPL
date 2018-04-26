@@ -99,7 +99,7 @@ class Jobs:
         if "testing" in job and job["testing"] == "y":
             if job["progress"] == "0":
                 job["progress"] = 50;
-                job["status"] = "runnig"
+                job["status"] = "running"
             else:
                 job["progress"] = 100;
                 job["status"] = "finished"

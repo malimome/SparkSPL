@@ -17,10 +17,10 @@ def source_query(source_id, earliest, latest):
     sourceq = ""
     if source["type"] == "elastic":
         sourceq = source_inits[source["type"]]
-        sourceq += ".option(\"es.query\",\"\"\"{\"query\": {\"match_all\":{}},"
-        sourceq += "\"filter\": {\"range\":{\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
-                        % (earliest, latest)
-        sourceq += ".load(\"{index}-*\").sort(desc(\"@timestamp\"))".format(index=source_id)
+        sourceq += ".option(\"es.query\",\"\"\"{\"query\": "
+        sourceq += "{\"range\": {\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
+                   % (earliest, latest)
+        sourceq += ".load(\"{index}-*\")".format(index=source_id)
     else:
         sourceq = source_inits[source["type"]]
     return sourceq
