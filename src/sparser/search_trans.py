@@ -41,6 +41,8 @@ def buildCP(cparray, sub=False):
     subqueries = []
     for cpa in cparray:
         cp = cpa["command"]
+        if cp is None:
+            raise Exception("Problem parsing the command!")
         if cp.command_type != "CPCompound":
             varname = cp.build(prev_var, subqueries)
         else:
@@ -66,6 +68,7 @@ def handle_subsearch(mql, subs):
         mql.run(subs[:bopos])
         subcommands =[{"command": mql.command, "sub": subcom}]
     else:
+        mql.command = None
         mql.run(subs)
         subcommands = [{"command": mql.command, "sub": []}]
     return subcommands
@@ -74,14 +77,19 @@ def handle_subsearch(mql, subs):
 def trans(mql, search):
     subsearches = split_pipes(search)
     cparray = []
+    i = 1
     for subs in subsearches:
-        subqs = handle_subsearch(mql, subs)
+        try:
+            subqs = handle_subsearch(mql, subs)
+        except Exception as ex:
+            raise Exception("Error at phrase %d: %s" % (i, str(ex)))
         cparray.extend(subqs)
+        i += 1
     return cparray
 
 
-def transform_search(search):
-    mql = MQL(earliest="now-d", latest="now")
+def transform_search(search, earliest, latest):
+    mql = MQL(earliest=earliest, latest=latest)
     cparray = trans(mql, search)
     #cparray.append(mql.json_cp())
     cparray.append(mql.csv_cp())
@@ -89,7 +97,7 @@ def transform_search(search):
     #cparray.append(mql.gen_output())
     spark_query = "\n".join(subqueries)
     end_query = build_end_query(spark_query, mql.meta, mql.imports, mql.udfs)
-    #print(end_query)
+    print(end_query)
     return end_query
 
 
@@ -104,7 +112,7 @@ source=filebeat
 | table p, q, t, a
 """
 q = """source=filebeat | table offset, @timestamp
-| eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25
-| sort @timestamp desc"""
-#e = transform_search(q)
-#print(e)
+| eval group = offset % 10, rn = rand() % 10, rn2=rand() % 25
+| timechart interval="10 minute" count by group """
+
+e = transform_search(q, earliest="now-d", latest="now")

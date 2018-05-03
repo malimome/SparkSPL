@@ -4,7 +4,8 @@ from src.utils.threader import threaded
 
 
 class Livy:
-    LVURL = "http://localhost:8998"
+    #LVURL = "http://localhost:8998"
+    LVURL = "http://server.google.loc:8998"
     headers = {} #{'Content-Type': 'application/json'}
     sessions = {}
     idles = set()

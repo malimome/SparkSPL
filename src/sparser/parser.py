@@ -1,18 +1,19 @@
 from src.sparser.parser_base import Parser
 from src.sparser.parse_source import source_query
 from src.sparser.command_param import *
+import re
 
 
 class MQL(Parser):
+    timepat = re.compile("(\d*)\s*(\w*)")
     literals = r'+-*/%,()<>=[]'
     tokens = [
-        'NAME', 'LITERAL',
-        'NUMBER', 'FLOAT',
+        'NAME', 'LITERAL', 'NUMBER', 'FLOAT',
         'GE', 'LE', 'NE', 'IDENT', 'AND', 'OR', 'XOR'
     ]
 
     evalNoArgsList = [
-        "rand", "randn", "current_date", "current_timestamp"
+        "rand", "randn", "current_date", "current_timestamp", "now"
     ]
     evalNoArgFuncs = {
     }
@@ -45,15 +46,22 @@ class MQL(Parser):
         "log", "pow", "hypot", "pmod",
         "format_number", "format_string", "nanvl",
         "add_months", "date_add", "date_sub", "date_diff", "date_format", "from_unixtime",
-        "last_day", "months_between", "next_day", "trunc",
-        "instr", "levenshtein", "repeat", "shiftLeft", "shiftRight", "split"
+        "last_day", "months_between", "next_day", "trunc", "date_trunc",
+        "instr", "levenshtein", "repeat", "shiftLeft", "shiftRight", "split",
+        "substr"
         #"locate", "relative_time"
     ]
     evalTwoArgFuncs = {
         "strpos": "instr",
-
     }
     evalTwoArgFuncs.update({f: f for f in evalTwoArgList})
+
+    evalThreeArgList = [
+        "replace"
+    ]
+    evalThreeArgFuncs = {
+    }
+    evalThreeArgFuncs.update({f: f for f in evalThreeArgList})
 
     #"lpad", "rpad", "substring(_index), "translate",
     evalManyList = [
@@ -66,7 +74,7 @@ class MQL(Parser):
     evalManyFuncs.update({f: f for f in evalManyList})
 
     evalSpecialList = [
-        "if", "case", "rex_replace", "rex_extract", "rex_match", "contains", "like", "in",
+        "if", "case", "rex_replace", "rex_extract", "rex_match", "contains", "like", "in", "interval_round"
     ]
     evalSpecialFuncs ={
         # "rlike": "RLIKE",
@@ -74,56 +82,26 @@ class MQL(Parser):
     }
     evalSpecialFuncs.update({f: f.upper() for f in evalSpecialList})
 
-    # greatest, least, hypot, log, log10, log2, md5, pmod, rint, round, sha1,
-    # sha2, shiftRight, shiftLeft, sin, sinh, tanh,
+    # pmod, rint, nanvl, to_json, unix_timestamp, monthofyear,
     # concat, concat_ws (join), conv (base conversion)
-    # decode, encode, expr, from_json, format_string, get_json_object, hash, hex,
-    # instr, isnan, isnull, length, locate, lpad,
-    # nanvl, repeat, reverse, rpad, to_json, trim, unbase64,
-    # datediff, dayofmonth, dayofyear, from_unixtime, hour, minute, month,
-    # months_between, next_day, second, to_date, to_timestamp, unix_timestamp
-    # monthofyear, weekofyear, year,
-    # array_contains, coalesce, corr (correlation two col), levenshtein,
+    # decode, encode, expr, from_json, format_string, get_json_object,
+    #  array_contains, coalesce, corr (correlation two col), levenshtein,
     # explode(_outer), posexplode(_outer),
-
-    #cidrmatch, commands, exact,
-    #ifnull, max, md5, min, mvappend, mvcount, mvindex, mvfilter, mvjoin, mvrange, mvzip, null, nullif, pi, round, sha1, sha256, sha512, sigfig, spath, sqrt, validate
-
+    #cidrmatch, commands, exact, sha1, sha256, sha512, sigfig, spath, sqrt, validate
+    #ifnull, max, min, mvappend, mvcount, mvindex, mvfilter, mvjoin, mvrange, mvzip, null, nullif, pi
     """
     evalNumFunctions = {
         #"correlation": "CORELATION", # df.stat.corr(NAME, NAME)
         #approxQuantile
         #crosstab
-        #freqItems
-        #"entropy": "ENTROPY",
-    }
-
-    evalStrFunctions = {
-        #"replace": "REPLACE",
-        #"urlencode": "URLENCODE",
-        #"split": "SPLIT",
-        #"match": "MATCH",
-        # "substr": "SUBSTR",
-        # "searchmatch": "SEARCHMATCH",
-        # translate - a version of replace
-        #"len": "LEN",
-        #initcap
-
-    }
-
-    evalDTFunctions = {
-        "strptime": "STRPTIME",
-        "strftime": "STRFTIME",
-        "time": "TIME",
-        "now": "NOW",
-        # datediff, to_date, months_between
-        # to_date(unix_timestamp(lit("2017-12-11"), dateFormat).cast("timestamp"))
-        # to_timestamp(date, ‘yyyy-dd-MM’)
     }
     """
 
     RESERVED = {
         "stats": "STATS",
+        "timechart": "TIMECHART",
+        "interval": "INTERVAL",
+        "bin": "BIN",
         "join": "JOIN",
         "window": "WINDOW",
         "by": "BY",
@@ -175,32 +153,52 @@ class MQL(Parser):
 
     statsFuncList = [
         "avg", "count", "countDistinct", "approx_count_distinct", "first", "last",
-        "max", "min", "mean", "mode", "median", "stdev", "skewness", "sum", "kurtosis",
-        "covar_samp", "covar_pop",
+        "max", "min", "mean", "mode", "median", "stddev", "skewness", "sum", "kurtosis",
+        "sumDistinct", "var_samp", "var_pop"
     ]
     Statsfunctions = {
-        'c': 'count', #
+        'c': 'count',
         'dc': 'countDistinct',
         'estdc': 'approx_count_distinct',
         'distinct_count': 'countDistinct',
-        #'earliest': 'min', #
-        #'exactperc<int>': 'perc', #
         'grouping_id': 'grouping_id',
-        #'latest': 'max', #
         'list': 'collect_list',
-        #'p<int>': 'p',
-        #'perc<int>': 'perc',
-        #'range': 'range',
+        'set': 'collect_set',
         'sumdc': 'sumDistinct',
-        'sumDistinct': 'sumDistinct',
+        'dcsum': 'sumDistinct',
         'stdevp': 'stddev_pop',
-        #'upperperc<int>': 'perc',
+        'stdevs': 'stddev_samp',
+        'std': 'stddev',
         'values': 'collect_set',
         'var': 'var_samp',
         'varp': 'var_pop',
-        'corr': 'corr', #correlation for two columns
+        #'latest': 'max', #
+        #'earliest': 'min', #
+        #'exactperc<int>': 'perc', #
+        #'upperperc<int>': 'perc',
+        #'p<int>': 'p',
+        #'perc<int>': 'perc',
+        #'range': 'range',
     }
     Statsfunctions.update({f: f for f in statsFuncList})
+    statsFuncList2 = [
+        "covar_samp", "covar_pop", "corr"
+    ]
+    Statsfunctions2 = {}
+    Statsfunctions2.update({f: f for f in statsFuncList2})
+    WindowFuncList = [
+        "percent_rank", "rank", "row_number", "currentRow", "cume_dist", "dense_rank",
+        "unboundedFollowing", "unboundedPreceding",
+    ]
+    Windowfunctions = {}
+    Windowfunctions.update({f: f for f in WindowFuncList})
+    WindowFuncList1 = [ "ntile" ]
+    Windowfunctions1 = {}
+    Windowfunctions1.update({f: f for f in WindowFuncList1})
+    WindowFuncList2 = [ "lag", "lead" ]
+    Windowfunctions2 = {}
+    Windowfunctions2.update({f: f for f in WindowFuncList2})
+
 
     def __init__(self, earliest, latest, **kw):
         super(MQL, self).__init__(**kw)
@@ -228,15 +226,15 @@ class MQL(Parser):
             t.value = 0
         return t
 
+    def t_LITERAL(self, t):
+        r'\".*?\"'
+        t.type = MQL.RESERVED.get(t.value, 'LITERAL')
+        return t
+
     def t_NAME(self, t):
         r'@?[a-zA-Z_][a-zA-Z_0-9]*'
         # Check for reserved words
         t.type = MQL.RESERVED.get(t.value, 'NAME')
-        return t
-
-    def t_LITERAL(self, t):
-        r'["][a-zA-Z_0-9\-\=\,\.\:\;\(\)\[\]\{\}\*\+\|\%\$\^\#\@\!\~\>\<\?]*["]'
-        t.type = MQL.RESERVED.get(t.value, 'LITERAL')
         return t
 
     """
@@ -249,8 +247,8 @@ class MQL(Parser):
         t.lexer.lineno += t.value.count("\n")
 
     def t_error(self, t):
-        print("Illegal character '%s'" % t.value[0])
         t.lexer.skip(1)
+        raise Exception("Illegal character '%s'" % t.value[0])
 
     def update_command(self, p, CmType, prefix=None, postfix=None):
         self.command = CmType(
@@ -368,6 +366,11 @@ class MQL(Parser):
         p[0] = "limit({2}).toDF".format(*p)
         self.update_command(p, CPSingle)
 
+    def p_bin(self, p):
+        """ statement : BIN INTERVAL '=' LITERAL NAME """
+        p[0] = "withColumn(\"{5}\",window($\"{5}\", {4}).getItem(\"start\"))".format(*p)
+        self.update_command(p, CPSingle)
+
     def p_sort(self, p):
         """ statement : SORT field-list-order
                       | ORDERBY field-list-order """
@@ -448,6 +451,35 @@ class MQL(Parser):
         func = map_func[p[2]]
         p[0] = "{field} {func} {regex}".format(field=p[1], func=func, regex=p[3])
 
+    def p_evalexpr_interval_round(self, p):
+        """ evalexpr : INTERVAL_ROUND '(' NAME ',' LITERAL ')' """
+        map = {
+           "s": 1, "second": 1, "seconds": 1,
+           "m": 60, "min": 60, "minute": 60, "minutes": 60,
+           "h": 60*60, "hour": 60*60, "hours": 60*60,
+           "d": 60*60*24, "day": 60*60*24, "days": 60*60*24,
+           "w": 60*60*24*7, "week": 60*60*24*7, "weeks": 60*60*24*7,
+           "M": 60*60*24*30, "month": 60*60*24*30, "months": 60*60*24*30,
+           "y": 60*60*24*365, "year": 60*60*24*365, "years": 60*60*24*365
+        }
+        g = MQL.timepat.match(p[5].strip("\""))
+        num_modifier = g.group(1)
+        time_modifier = g.group(2)
+        if time_modifier == '' and num_modifier == '':
+            raise Exception("bin value not defined!")
+        num_bin = 1
+        if num_modifier != '':
+            num_bin = int(num_modifier)
+        if time_modifier != '':
+            if time_modifier not in map:
+                raise Exception("time modifier not defined!")
+            num_bin = num_bin * map[time_modifier]
+            p[5] = num_bin
+            p[0] = "(floor($\"{3}\".cast(\"timestamp\").cast(\"long\") / {5}) * {5}).cast(\"timestamp\")".format(*p)
+        else:
+            p[5] = num_bin
+            p[0] = "floor(${3} / {5})*{5}".format(*p)
+
     def p_evalexpr_func_012arg(self, p):
         """ evalexpr : NAME '(' evalexpr ',' evalexpr ')'
                      | NAME '(' evalexpr ')'
@@ -486,19 +518,6 @@ class MQL(Parser):
         }
         p[0] = stmts[len(p)].format(*p)
 
-    #def p_evalexpr_relts(self, p):
-    #    """ evalexpr : relative_time '(' NAME ',' NAME ')' """
-    #    map = {
-    #        "m": 60,
-    #        "h": 60*60,
-    #        "d": 60*60*24,
-    #        "w": 60*60*24*7,
-    #        "M": 60*60*24*30,
-    #        "y": 60*60*24*365
-    #    }
-    #    p[5] = map[p[5]]
-    #    p[0] = "round(${3} / {5})*{5}".format(*p)
-
     def p_evalexpr_group(self, p):
         """ evalexpr : '(' evalexpr ')' """
         p[0] = '({2})'.format(*p)
@@ -518,6 +537,11 @@ class MQL(Parser):
         p[0] = "filter({2})".format(*p)
         self.update_command(p, CPSingle)
 
+    def p_timechart(self, p):
+        """ statement : TIMECHART INTERVAL '=' LITERAL stats-agg-terms BY field-list"""
+        p[0] = "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"time\"), {7}).agg({5})".format(*p)
+        self.update_command(p, CPSingle)
+
     def p_stats(self, p):
         """ statement : STATS stats-agg-terms BY field-list"""
         # df.groupBy("col1").agg(sum("col2").alias("col2")
@@ -534,18 +558,25 @@ class MQL(Parser):
         p[0] = stmts[len(p)].format(*p)
 
     def p_stat_agg_term(self, p):
-        """ stats-agg-term : NAME '(' expr ')' AS NAME
-                           | NAME '(' expr ')'
+        """ stats-agg-term : NAME '(' stat-arg ',' stat-arg ')' AS NAME
+                           | NAME '(' stat-arg ',' stat-arg ')'
+                           | NAME '(' stat-arg ')' AS NAME
+                           | NAME '(' stat-arg ')'
                            | COUNT AS NAME
                            | COUNT"""
-        if p[1] not in MQL.Statsfunctions:
-           raise Exception('Unknow stats function >> %s <<'%p[1])
+        if len(p) >= 7 and p[4] == ',' and p[1] not in MQL.Statsfunctions2:
+            raise Exception("Unknown stats function with 2 args: %s" % p[1])
+        elif p[1] not in MQL.Statsfunctions:
+           raise Exception('Unknow stats function: %s' % p[1])
         stmts = {
+            9: "{1}({3}, {5}).alias(\"{8}\")",
             7: "{1}({3}).alias(\"{6}\")",
             5: "{1}({3})",
             4: "count(lit(1)).alias(\"{3}\")",
-            2: "count(lit(1))"
+            2: "count(lit(1)).alias(\"count\")"
         }
+        if len(p) == 7 and p[4] == ",":
+            stmts[7] = "{1}({3}, {5})"
         p[1] = MQL.Statsfunctions.get(p[1], p[1])
         p[0] = stmts[len(p)].format(*p)
 
@@ -596,7 +627,7 @@ class MQL(Parser):
         p[0] = stmts[len(p)].format(*p)
 
     def p_win_agg_term(self, p):
-        """ win-agg-term : NAME '(' expr ')' AS NAME
+        """ win-agg-term : NAME '(' stat-arg ')' AS NAME
                          | NAME AS NAME """
         if p[1] not in MQL.Statsfunctions:
            raise Exception('Unknow window function >> %s <<'%p[1])
@@ -611,8 +642,8 @@ class MQL(Parser):
         """ field-list : field-list ',' NAME
                       | NAME """
         stmts = {
-            4: "{1}, \"{3}\"",
-            2: "\"{1}\""
+            4: "{1}, $\"{3}\"",
+            2: "$\"{1}\""
         }
         p[0] = stmts[len(p)].format(*p)
 
@@ -685,7 +716,7 @@ class MQL(Parser):
         raise NotImplemented
 
     def p_expression_name(self, p):
-        ' expr : NAME '
+        ' stat-arg : NAME '
         try:
             p[0] = "\"{1}\"".format(*p)
         except LookupError:
@@ -693,14 +724,14 @@ class MQL(Parser):
             p[0] = 0
 
     def p_expression_literal(self, p):
-        ' expr : LITERAL '
+        ' stat-arg : LITERAL '
         p[0] = p[1]
 
     def p_error(self, p):
         if p:
-            print("Syntax error at '%s'" % p.value)
+            raise Exception("Syntax error at '%s'" % p.value)
         else:
-            print("Syntax error at EOF")
+            raise Exception("Syntax error!")
 
 
 if __name__ == '__main__':

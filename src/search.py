@@ -19,7 +19,8 @@ class Search:
     @staticmethod
     def process_search(job):
         spl_search = job["query"]
-        spark_query = transform_search(spl_search)
+        earliest, latest = job["earliest"], job["latest"]
+        spark_query = transform_search(spl_search, earliest, latest)
         r = Search.sc.post_search(spark_query)
         job["internal_session"] = r
         return 0

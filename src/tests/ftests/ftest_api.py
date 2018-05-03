@@ -6,8 +6,8 @@ from pprint import pprint
 
 headers = {'Content-Type': 'application/json'}
 #URL = "http://sparkify.novelsec.com"
-URL = "http://server.novelsec.com"
-#URL = "http://127.0.0.1:5000"
+#URL = "http://server.novelsec.com"
+URL = "http://127.0.0.1:5000"
 JOBS_URL = "{URL}/jobs".format(URL=URL)
 
 
@@ -80,7 +80,7 @@ def post_job_get(q, cancel=False):
     query = {
       "query": q,
       "mode": "normal",
-      "earliest": "now-d",
+      "earliest": "now-2d",
       "priority": "normal",
       "latest": "now",
       #"testing": "y"
@@ -110,6 +110,10 @@ def post_job_get(q, cancel=False):
 
 if __name__ == '__main__':
     q= """source=filebeat | table offset, @timestamp
+| eval group = offset % 10
+| timechart interval="10 minute" count by group
+"""
+    b = """
 | eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25
 | sort @timestamp desc
 """
