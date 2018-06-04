@@ -284,11 +284,25 @@ class MQL(Parser):
 
     def p_source(self, p):
         """ statement : SOURCE '=' NAME
-                     | SOURCE '=' NAME '(' LITERAL ')' """
+                     | SOURCE '=' NAME command-args """
         p[0] = source_query(p[3], self.earliest, self.latest)
         self.update_command(p, CPSource)
-        if len(p) == 7:
-            self.meta["src_param"] = p[5]
+        if len(p) == 5:
+            self.meta["src_param"] = p[4]
+
+    def p_command_args(self, p):
+        """ commands-args : NAME
+                          | LITERAL
+                          | NAME '=' nlnf-types """
+        self.meta["commands-args"] = {}
+        p[0] = p[1]
+
+    def p_nlnf_types(self, p):
+        """ nlnf-types : NAME
+                       | LITERAL
+                       | FLOAT
+                       | NUMBER """
+        p[0] = p[1]
 
     def p_table(self, p):
         """ statement : TABLE field-list
@@ -538,8 +552,8 @@ class MQL(Parser):
         self.update_command(p, CPSingle)
 
     def p_timechart(self, p):
-        """ statement : TIMECHART INTERVAL '=' LITERAL stats-agg-terms BY field-list"""
-        p[0] = "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"time\"), {7}).agg({5})".format(*p)
+        """ statement : TIMECHART INTERVAL '=' LITERAL stats-agg-terms BY NAME """
+        p[0] = "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"@timestamp\")).pivot(\"{7}\").agg({5})".format(*p)
         self.update_command(p, CPSingle)
 
     def p_stats(self, p):

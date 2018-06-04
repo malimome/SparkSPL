@@ -82,7 +82,7 @@ def trans(mql, search):
         try:
             subqs = handle_subsearch(mql, subs)
         except Exception as ex:
-            raise Exception("Error at phrase %d: %s" % (i, str(ex)))
+            raise Exception("Error at pipe %d: %s" % (i, str(ex)))
         cparray.extend(subqs)
         i += 1
     return cparray
