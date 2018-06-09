@@ -291,18 +291,23 @@ class MQL(Parser):
             self.meta["src_param"] = p[4]
 
     def p_command_args(self, p):
-        """ commands-args : NAME
+        """ command-args : NAME
                           | LITERAL
-                          | NAME '=' nlnf-types """
+                          | NAME '=' nlnftypes
+                          | NAME command-args
+                          | LITERAL command-args
+                          | NAME '=' nlnftypes command-args"""
+
         self.meta["commands-args"] = {}
-        p[0] = p[1]
+        #p[0] = p[1]
 
     def p_nlnf_types(self, p):
-        """ nlnf-types : NAME
+        """ nlnftypes : NAME
                        | LITERAL
                        | FLOAT
                        | NUMBER """
-        p[0] = p[1]
+        pass
+        #p[0] = p[1]
 
     def p_table(self, p):
         """ statement : TABLE field-list
@@ -552,8 +557,13 @@ class MQL(Parser):
         self.update_command(p, CPSingle)
 
     def p_timechart(self, p):
-        """ statement : TIMECHART INTERVAL '=' LITERAL stats-agg-terms BY NAME """
-        p[0] = "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"@timestamp\")).pivot(\"{7}\").agg({5})".format(*p)
+        """ statement : TIMECHART INTERVAL '=' LITERAL stats-agg-terms BY NAME
+                      | TIMECHART INTERVAL '=' LITERAL stats-agg-terms """
+        stmts = {
+            6: "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"@timestamp\")).agg({5})",
+            8: "groupBy(window($\"@timestamp\", {4}).getItem(\"start\").alias(\"@timestamp\")).pivot(\"{7}\").agg({5})",
+        }
+        p[0] = stmts[len(p)].format(*p)
         self.update_command(p, CPSingle)
 
     def p_stats(self, p):
