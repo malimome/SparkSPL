@@ -114,5 +114,15 @@ source=filebeat
 q = """source=filebeat | table offset, @timestamp
 | eval group = offset % 10, rn = rand() % 10, rn2=rand() % 25
 | timechart interval="10 minute" count by group """
+q = """source=varlog
+| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
+| eval attemptedUser=rex_extract(message, "user (\w+)")
+| fillnull value="-" ip
+| stats count as ciphost by ip, attemptedUser, host
+| join ip, host [source=netflow
+| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
+ dc(flow_id) as distinctFlows
+ by dest_ip, dest_port, source_ip, source_port, host | rename source_ip as ip]
+"""
 
-e = transform_search(q, earliest="now-d", latest="now")
+e = transform_search(q, earliest="now-1h", latest="now")

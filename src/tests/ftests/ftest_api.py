@@ -80,7 +80,7 @@ def post_job_get(q, cancel=False):
     query = {
       "query": q,
       "mode": "normal",
-      "earliest": "now-2d",
+      "earliest": "now-1h",
       "priority": "normal",
       "latest": "now",
       #"testing": "y"
@@ -100,18 +100,24 @@ def post_job_get(q, cancel=False):
         if cancel: break
     print("after loop1")
     # ------
-    ret = get_jobid_block(job, 5, 5)
-    ret = get_jobid(job, 10, 5)
-    ret = get_jobid(job, 15, 5)
-    print("after loop2")
-    ret = get_jobid(job, 20, 5)
+    ret = get_jobid_block(job, 0, 2000)
+    #ret = get_jobid(job, 10, 5)
+    #ret = get_jobid(job, 15, 5)
+    #print("after loop2")
+    #ret = get_jobid(job, 20, 5)
     del_jobid(job)
 
 
 if __name__ == '__main__':
-    q= """source=filebeat | table offset, @timestamp
-| eval group = offset % 10
-| timechart interval="10 minute" count by group
+    q= """source=varlog
+| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
+| eval attemptedUser=rex_extract(message, "user (\w+)")
+| fillnull value="-" ip
+| stats count as ciphost by ip, attemptedUser, host
+| join ip, host [source=netflow
+| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
+ dc(flow_id) as distinctFlows
+ by dest_ip, dest_port, source_ip, source_port | rename source_ip as ip]
 """
     b = """
 | eval group = offset % 10, rn = rand() % 20, rn2=rand() % 25

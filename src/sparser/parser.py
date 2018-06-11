@@ -115,7 +115,6 @@ class MQL(Parser):
         "range": "RANGE",
         "rows": "ROWS",
         "to": "TO",
-        "count": "COUNT",
         "table": "TABLE",
         "drop": "DROP",
         "where": "WHERE",
@@ -199,7 +198,6 @@ class MQL(Parser):
     Windowfunctions2 = {}
     Windowfunctions2.update({f: f for f in WindowFuncList2})
 
-
     def __init__(self, earliest, latest, **kw):
         super(MQL, self).__init__(**kw)
         self.imports = set()
@@ -227,7 +225,7 @@ class MQL(Parser):
         return t
 
     def t_LITERAL(self, t):
-        r'\".*?\"'
+        r'"[^"]*"'
         t.type = MQL.RESERVED.get(t.value, 'LITERAL')
         return t
 
@@ -295,7 +293,7 @@ class MQL(Parser):
                           | LITERAL
                           | NAME '=' nlnftypes
                           | NAME command-args
-                          | LITERAL command-args
+                          | LITERAL command-args empty
                           | NAME '=' nlnftypes command-args"""
 
         self.meta["commands-args"] = {}
@@ -306,8 +304,11 @@ class MQL(Parser):
                        | LITERAL
                        | FLOAT
                        | NUMBER """
+        p[0] = p[1]
+
+    def p_empty(self, p):
+        """empty :"""
         pass
-        #p[0] = p[1]
 
     def p_table(self, p):
         """ statement : TABLE field-list
@@ -320,7 +321,7 @@ class MQL(Parser):
         self.update_command(p, CPSingle)
 
     def p_join(self, p):
-        """ statement : JOIN field-list """
+        """ statement : JOIN field-list-novar """
         # '[' statement ']'
         p[0] = "join({parent_var}, Seq(%s))" % p[2]
         self.update_command(p, CPCompound)
@@ -374,10 +375,14 @@ class MQL(Parser):
         p[0] = ""
 
     def p_fillnull(self, p):
-        """ statement : FILLNULL VALUE '=' evalexpr field-list """
-        # TODO fillnull - should accept both string and numbers
+        """ statement : FILLNULL VALUE '=' nlnftypes field-list-novar
+                      | FILLNULL VALUE '=' nlnftypes """
+        stmts = {
+            5: "na.fill({4})",
+            6: "na.fill({4}, Seq({5}))"
+        }
+        p[0] = stmts[len(p)].format(*p)
         self.update_command(p, CPSingle)
-        raise NotImplemented
 
     def p_head(self, p):
         """ statement : HEAD NUMBER
@@ -452,11 +457,12 @@ class MQL(Parser):
 
     def p_evalexpr_rex_extract(self, p):
         """ evalexpr : REX_EXTRACT '(' NAME ',' LITERAL ')' """
-        p[0] = 'regexp_extract({3}, """{5}""", 1)'.format(*p)
+        p[5] = p[5].replace("\\", "\\\\")
+        p[0] = 'regexp_extract($"{3}", {5}, 1)'.format(*p)
 
     def p_evalexpr_rex_replace(self, p):
         """ evalexpr : REX_REPLACE '(' NAME ',' LITERAL ',' LITERAL ')' """
-        p[0] = 'regexp_replace({3}, ""{5}"", {7})'.format(*p)
+        p[0] = 'regexp_replace("${3}", {5}, {7})'.format(*p)
 
     def p_evalexpr_rex_match(self, p):
         """ evalexpr : NAME REX_MATCH LITERAL
@@ -586,12 +592,14 @@ class MQL(Parser):
                            | NAME '(' stat-arg ',' stat-arg ')'
                            | NAME '(' stat-arg ')' AS NAME
                            | NAME '(' stat-arg ')'
-                           | COUNT AS NAME
-                           | COUNT"""
+                           | NAME AS NAME
+                           | NAME """
         if len(p) >= 7 and p[4] == ',' and p[1] not in MQL.Statsfunctions2:
             raise Exception("Unknown stats function with 2 args: %s" % p[1])
         elif p[1] not in MQL.Statsfunctions:
-           raise Exception('Unknow stats function: %s' % p[1])
+            raise Exception('Unknow stats function: %s' % p[1])
+        if len(p)<=4 and p[1].lower() != "count":
+            raise Exception('Stats function %s missing arguments!' % p[1])
         stmts = {
             9: "{1}({3}, {5}).alias(\"{8}\")",
             7: "{1}({3}).alias(\"{6}\")",
@@ -652,14 +660,21 @@ class MQL(Parser):
 
     def p_win_agg_term(self, p):
         """ win-agg-term : NAME '(' stat-arg ')' AS NAME
-                         | NAME AS NAME """
+                         | NAME AS NAME
+                         | NAME
+        """
         if p[1] not in MQL.Statsfunctions:
            raise Exception('Unknow window function >> %s <<'%p[1])
+        if len(p)<=4 and p[1].lower() != "count":
+            raise Exception('Stats function %s missing arguments!' % p[1])
+        if len(p) <= 4:
+            p1 = "(lit(1))" if p[1].lower() == "count" else "()"
+            p[1] += p1
         stmts = {
             7: "withColumn(\"{6}\", {1}({3})",
-            4: "withColumn(\"{3}\", {1}()"
+            4: "withColumn(\"{3}\", {1}",
+            2: "withColumn(\"{1}\", {1}"
         }
-        # TODO count is not working, other funcs
         p[0] = stmts[len(p)].format(*p) + ".over({wSpec}))"
 
     def p_field_list_comma(self, p):
@@ -668,6 +683,15 @@ class MQL(Parser):
         stmts = {
             4: "{1}, $\"{3}\"",
             2: "$\"{1}\""
+        }
+        p[0] = stmts[len(p)].format(*p)
+
+    def p_field_list_comma_novar(self, p):
+        """ field-list-novar : field-list-novar ',' NAME
+                      | NAME """
+        stmts = {
+            4: "{1}, \"{3}\"",
+            2: "\"{1}\""
         }
         p[0] = stmts[len(p)].format(*p)
 

@@ -1,0 +1,47 @@
+source=varlog | table offset, @timestamp
+| eval group = offset % 10
+| timechart interval="10 minute" count by group
+
+source=varlog
+| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
+| eval attemptedUser=rex_extract(message, "user (\w+)")
+| fillnull value="-" ip
+| stats count as ciphost by ip, attemptedUser, host
+| window count as cip over ip
+| sort cip desc
+
+source=netflow
+| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
+ dc(flow_id) as distinctFlows
+ by dest_ip, dest_port, source_ip, source_port
+| eval source_kb=round(source_bytes/1000), dest_kb=round(dest_bytes/1000)
+| table source_ip, source_port, source_kb, dest_kb, dest_ip, dest_port, count, distinctFlows
+
+source=netflow
+| timechart interval="1 minute" sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes
+ by host
+
+source=varlog
+| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
+| eval attemptedUser=rex_extract(message, "user (\w+)")
+| fillnull value="-" ip
+| stats count as ciphost by ip, attemptedUser, host
+| join ip, host [source=netflow
+| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
+ dc(flow_id) as distinctFlows
+ by dest_ip, dest_port, source_ip, source_port | rename source_ip as ip]
+
+source=varlog
+| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
+| eval attemptedUser=rex_extract(message, "user (\w+)")
+| fillnull value="-" ip
+| stats count as ciphost by ip, attemptedUser, host
+| join ip, host [source=netflow
+| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
+ dc(flow_id) as distinctFlows
+ by dest_ip, dest_port, source_ip, source_port, host | rename source_ip as ip]
+
+
+
+
+

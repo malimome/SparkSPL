@@ -8,7 +8,7 @@ class TestParser(unittest.TestCase):
 
     def test_postjob(self):
         searches = {
-            'source=filebeat("t")':
+            'source=filebeat "T"':
                 'spark.read.format("org.elasticsearch.spark.sql").option("es.nodes", "localhost").option("es.port", "9200").option("es.read.field.empty.as.null","true").option("es.index.read.missing.as.empty","true").option("es.mapping.include", "beat.*, prospector.*, tags.*").option("es.read.field.exclude", "prospector,beat,tags").option("es.query","""{"query": {"range": {"@timestamp": {"gte":"now-d", "lt":"now"}}}}""").load("filebeat-*")',
             'table a1, a2, a3':
                 'select($"a1", $"a2", $"a3")',
@@ -29,7 +29,11 @@ class TestParser(unittest.TestCase):
             'rename a1 as a2, b1 as b2':
                 'withColumnRenamed("a1", "a2").withColumnRenamed("b1", "b2")',
             'window max(b) as c, sum(f) as g over b orderby c range -1 to 1':
-                'withColumn("c", max("b").over({wSpec})).withColumn("g", sum("f").over({wSpec}))'
+                'withColumn("c", max("b").over({wSpec})).withColumn("g", sum("f").over({wSpec}))',
+            'fillnull value="-" ip,host':
+                'na.fill("-", Seq("ip", "host"))',
+            'fillnull value=0 count':
+                'na.fill(0, Seq("count"))'
         }
 
         cl = MQL(earliest="now-d", latest="now")
@@ -51,7 +55,7 @@ class TestParser(unittest.TestCase):
 
             ret = fnmatch(final, a)
             if not ret:
-                print("#", s, "\n", final, "\n", a)
+                print("#", s, "\n> ", final, "\n< ", a)
             self.assertTrue(ret)
             #print(s, ", ", spsearch)
             #self.assertEqual(a, spsearch)
