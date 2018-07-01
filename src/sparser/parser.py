@@ -103,6 +103,7 @@ class MQL(Parser):
         "interval": "INTERVAL",
         "bin": "BIN",
         "join": "JOIN",
+        "union": "UNION",
         "window": "WINDOW",
         "by": "BY",
         "over": "OVER",
@@ -324,6 +325,11 @@ class MQL(Parser):
         """ statement : JOIN field-list-novar """
         # '[' statement ']'
         p[0] = "join({parent_var}, Seq(%s))" % p[2]
+        self.update_command(p, CPCompound)
+
+    def p_union(self, p):
+        """ statement : UNION """
+        p[0] = "union({parent_var})"
         self.update_command(p, CPCompound)
 
     def p_rename(self, p):
