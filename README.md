@@ -1,4 +1,4 @@
-# sparkify_server
+# Spark SPL Engine
 
 A REST API that lets you search data with an SPL-style query language and runs it on Apache Spark.
 
