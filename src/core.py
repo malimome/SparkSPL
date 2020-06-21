@@ -33,8 +33,9 @@ signal.signal(signal.SIGINT, service_shutdown)
 def _core_loop():
     global stop
     while not stop:
+        """ min_idle is the minimum number of idle sessions to maintain """
         jb.sch.search_loop(min_idle=2)
-        time.sleep(5)
+        time.sleep(5)  # TODO config this
     # Process jobs (get their results)
     # Delete old indexes
     # run scheduled reports

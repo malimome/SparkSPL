@@ -124,6 +124,7 @@ class Jobs:
         result, types = Jobs._check_job_load(job)
         if result is None and not test:
             result, types = Jobs.sch.get_search_result(job, mode)
+            # TODO send data back and then dump it. - writing and then reading is costly
             Jobs._check_job_dump(job, result, types)
         final = Jobs.build_result_response(job, result, types, offset, count)
         return final
@@ -132,10 +133,10 @@ class Jobs:
     def build_result_response(job, result, types, offset, count):
         jobres = dict(job)
         if job["status"] == "finished":
-            jobres["result"] = result[offset:offset+count]
+            jobres["result"] = result[offset:offset+count] if result is not None else []
             jobres["end_time"] = int(time.time())
             jobres["result_summary"] = {
-                "total_count": len(result),
+                "total_count": len(result) if result is not None else 0,
                 "return_count": len(jobres["result"]),
                 "return_offset": offset,
                 "fields": types,

@@ -5,13 +5,14 @@ from src.utils.threader import threaded
 
 class Livy:
     #LVURL = "http://localhost:8998"
-    LVURL = "http://server.google.loc:8998"
+    LVURL = "http://localhost:8998"   #TODO add to config
     headers = {} #{'Content-Type': 'application/json'}
     sessions = {}
     idles = set()
 
     @staticmethod
     def init_livy(force=False):
+        """ Connect to Livy and get all the existing sessions and check if they are idle """
         if len(Livy.sessions) != 0 and not force:
             return
         r = wr.get_req(Livy.session_url()) #, data={"from": 0, "size": 30}
@@ -25,6 +26,7 @@ class Livy:
 
     @staticmethod
     def create_session():
+        """ Creates a session and returns the ID """
         data = {
             'kind': 'spark', 'proxyUser': 'user',
             'driverCores': 2, 'executorCores': 2,
@@ -37,26 +39,30 @@ class Livy:
 
     @staticmethod
     def get_session(session_url):
+        """ Get a session """
         r = wr.get_req(session_url, header=Livy.headers)
         return r.json()
 
     @staticmethod
     def get_session_log(session_id):
+        """ Download session logs """
         session_log_url = Livy.session_url_from_id(session_id) + "/log"
         r = wr.get_req(session_log_url, header=Livy.headers)
         return r.json()
 
     @staticmethod
     def wait_session_idle(session_id):
+        """ Query the session until it becomes idle """
         session_url = Livy.session_url_from_id(session_id)
         r = Livy.get_session(session_url)
         while r['state'] != 'idle':
-            time.sleep(2)
+            time.sleep(3)  #TODO deep config
             r = Livy.get_session(session_url)
         return r
 
     @staticmethod
     def create_idle_session():
+        """ Create a session and wait for it to become idle """
         session_id = Livy.create_session()
         session = Livy.wait_session_idle(session_id)
         Livy.sessions[session["id"]] = session
@@ -64,6 +70,7 @@ class Livy:
 
     @staticmethod
     def get_free_session():
+        """ Get a free idle session, if not exist, create one and return """
         session_id = None
         if len(Livy.idles) != 0:
             session_id = Livy.idles.pop()
@@ -73,6 +80,7 @@ class Livy:
 
     @staticmethod
     def post_query(search):
+        """ Posts a query: Find the last stmt id from session, then posts the search to that stmt """
         session_id = Livy.get_free_session()
         statements_url = Livy.stmt_url_from_id(session_id)
         data = {'code': search}
@@ -86,6 +94,7 @@ class Livy:
 
     @staticmethod
     def get_result_async(ssn_stmt):
+        """ If the result is available, return it and restore the session """
         session_id = ssn_stmt["sid"]
         statement_url = Livy.stmtid_url_from_ids(session_id, ssn_stmt["tid"])
         r = wr.get_req(statement_url, header=Livy.headers)
@@ -97,6 +106,7 @@ class Livy:
 
     @staticmethod
     def get_result(ssn_stmt):
+        """ Call to get results until it is available """
         result = Livy.get_result_async(ssn_stmt)
         while result['state'] != 'available':
             time.sleep(2)
@@ -106,6 +116,7 @@ class Livy:
 
     @staticmethod
     def cancel_query(ssn_stmt):
+        """ Cancels a query """
         stmt_cancel_url = Livy.stmtid_url_from_ids(ssn_stmt["sid"], ssn_stmt["tid"]) + "/cancel"
         r = wr.post_req(stmt_cancel_url, header=Livy.headers)
         # check the result r to see msg = "cancelled"
@@ -115,6 +126,8 @@ class Livy:
     @staticmethod
     @threaded
     def session_restore(ssn_stmt):
+        """ Restore the session to idle """
+        # TODO check if we run into race conditions
         session_id = ssn_stmt["sid"]
         if session_id in Livy.idles:
             return 0
@@ -125,6 +138,7 @@ class Livy:
 
     @staticmethod
     def delete_session(ssn_stmt):
+        """ Deletes a session """
         session_id = ssn_stmt["sid"]
         wr.delete_req(Livy.session_url_from_id(session_id), header=Livy.headers)
 

@@ -11,14 +11,15 @@ source=filebeat
 | rename c as c2, g as g2 | head 1000
 | save summary_test
 """
+    ### TODO second q fails due to input param
     q= """
-source=filebeat("t")
+source=filebeat("5")
 | eval group = offset % 5, rn = rand()
 | sort group desc, @timestamp desc
 | head 15
 | stats count as c, values(@timestamp) as vt by group
 """
-    print(transform_search(q))
+    print(transform_search(q, earliest="-5d", latest="-2d"))
     return ""
 
 

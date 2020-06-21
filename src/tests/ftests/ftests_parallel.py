@@ -27,19 +27,23 @@ def run_parallel_search(query, earliest, latest):
 def main():
     queries = [
         "source=filebeat",
-        "source=filebeat | eval rn=rand() | stats sum(rn) as srn by offset",
-        "source=filebeat | eval rn=if(rand()>0.5, 1, 0) | stats min(offset) as moff by rn"
+        "source=filebeat | eval rn=rand() | stats sum(rn) as srn by @version",
+        "source=filebeat | eval rn=if(rand()>0.5, 1, 0) | stats min(@version) as moff by rn",
+        "source=filebeat | eval rn=if(rand()>0.5, 1, 0) | stats max(@version) as moff by rn",
+        "source=filebeat | eval rn=if(rand()>0.4, 1, 0) | stats avg(@version) as moff by rn"
     ]
     th = []
     ret = []
     for query in queries:
-        t, r = run_parallel_search(query, "now-d", "now")
+        t, r = run_parallel_search(query, "now-5d", "now")
         th.append(t)
         ret.append(r)
 
     for i in range(len(th)):
         th[i].join()
-        print(ret[i].val["query"], ":\n", ret[i].val["data"][0])
+        a = th[i].isAlive()
+        if ret[i].val is not None:
+            print("%s:\n%s" % (ret[i].val["query"], ret[i].val["data"][0]))
 
 
 main()

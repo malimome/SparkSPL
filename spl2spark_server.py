@@ -1,5 +1,5 @@
 from flask import Flask, request, session
-from flask_restplus import Resource, Api as BaseApi, fields
+from flask_restx import Resource, Api as BaseApi, fields
 from webargs import fields as wfields, validate
 from webargs.flaskparser import use_kwargs#, parser
 from src.core import jb, sc, dshb, sr, id, core_loop
@@ -147,12 +147,12 @@ class JobId(Resource):
         'offset': wfields.Int(
             required=False,
             missing=0,
-            validate=validate.Range(0, 999999999999999999, "Offset over limit")
+            validate=validate.Range(0, 999999999999999999)#, "Offset over limit")
         ),
         'count': wfields.Int(
             required=False,
             missing=10000,
-            validate=validate.Range(0, 100000, "Count over limit")
+            validate=validate.Range(0, 100000) #, "Count over limit")
         )
     }
     action = {
@@ -313,7 +313,8 @@ source_post = api.model('Source', {
     'description': fields.String(description="The description of the source"),
     'type': fields.String(description="default | elastic | hadoop | mysql | mssql | postgresql"),
     'connection': fields.String(description="index name in the default "),
-    'query': fields.String(description="The query to get the raw data")
+    'query': fields.String(description="The query to get the raw data"),
+    'index': fields.String(description="The index with wildcard name if it is daily index")
 })
 
 

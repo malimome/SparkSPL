@@ -3,11 +3,18 @@ from pprint import pprint
 import time
 
 
-def build_job(qind = 0, earliest='now-d', latest='now'):
+def build_job(qind = 0, earliest='now-10d', latest='now'):
+    # TODO filebeat("t") fails
     queries = [
         """
-source=filebeat("t")
-| eval group = offset % 5, rn = rand()
+        source=filebeat
+        """,
+        """
+        source=kibana_sample_data_ecommerce
+        """,
+        """
+source=filebeat
+| eval group = @version % 5, rn = rand()
 | sort group desc, @timestamp desc
 | head 15
 | stats count as c, values(@timestamp) as vt by group
@@ -49,14 +56,14 @@ def test_get_post_job():
     # ------- Check job status async
     i = 0
     while job["status"] != "finished":
-        final = jb.get_job(job_id)
+        job = jb.get_job(job_id)
         nice_print(job, "job async %d" % i)
         i += 1
         if job["status"] != "finished":
             time.sleep(2)
 
-    nice_print(final, "job full")
-    print("RESULTS: %d" % final["result_summary"]["count"])
+    nice_print(job, "job full")
+    print("RESULTS: %d" % job["result_summary"]["total_count"])
     # ------- Get job result again blocking
     #job, result = jb.get_job(job_id)
     #nice_print(job, "job blocking")
@@ -70,7 +77,7 @@ def test_get_post_job():
 def test_post_job_cancel():
     jb = Jobs().init()
     # ------- Post Job
-    job_post = build_job(qind=0, earliest='now-15d', latest='now')
+    job_post = build_job(qind=0, earliest='-1d', latest='now')
     job = jb.add_job(job_post)
     jb.post_job(job)
     nice_print(job, "job post")

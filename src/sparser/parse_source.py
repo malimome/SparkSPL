@@ -20,7 +20,7 @@ def source_query(source_id, earliest, latest):
         sourceq += ".option(\"es.query\",\"\"\"{\"query\": "
         sourceq += "{\"range\": {\"@timestamp\": {\"gte\":\"%s\", \"lt\":\"%s\"}}}}\"\"\")" \
                    % (earliest, latest)
-        sourceq += ".load(\"{index}-*\")".format(index=source_id)
+        sourceq += ".load(\"{index}\")".format(index=source["index"])
     else:
         sourceq = source_inits[source["type"]]
     return sourceq

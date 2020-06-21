@@ -1,0 +1,11 @@
+General
+--------------
+1- run ftest_jobs and check
+        rdw = "[" + output['data']['text/plain'].replace("\n", ",") + "]"
+
+
+2- If field does not exist in the data, it will complains
+Exception: org.apache.spark.sql.AnalysisException: cannot resolve '`offset`' given input columns: [host, log, message, agent, input, @version, ecs, @timestamp];;
+Should it handle the error?
+
+2-

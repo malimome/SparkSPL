@@ -2,6 +2,7 @@ import src.sparkcontroller.webreq as wr
 
 
 class EIndex:
+    # TODO config this
     URL = "http://localhost:9200"
     HEADER = {
     }

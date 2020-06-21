@@ -66,10 +66,27 @@ class Search:
             raise Exception("No data!")
         output = result['output']
         if output['status'] != 'ok':
-            raise Exception("%s" % output['evalue'] if 'evalue' in output else "Error in query")
-        rdw = "[" + output['data']['text/plain'].replace("\n", ",") + "]"
-        resp = json.loads(rdw)
-        types = resp[0] if len(resp) > 0 else None
-        data = resp[1:] if len(resp) > 1 else None
+            error_msg = "Error: %s\n" % output['evalue'] if 'evalue' in output else "Error in query"
+            error_msg += "Trace: %s" % "".join(output['traceback']) if 'traceback' in output else "No Trace!"
+            raise Exception(error_msg)
+        raw_result = output['data']['text/plain']
+        # remove the last instance of vartypes!
+        ind = raw_result.rfind("vartypes0001: String =")
+        raw_result = raw_result[ind:].strip('\n')
+        # remove the first line which is still vartypes!
+        raw_result = raw_result[raw_result.find("\n") + 1:]
+        # separate the first line as type and the rest as data
+        data_ind = raw_result.find("\n")
+        # types is a dict of types
+        types = raw_result[:data_ind]
+        # data is a list of dicts for each result
+        raw_array = raw_result[data_ind + 1:].split("\n")
+        # TODO validation?
+        rdw = "[" + ", ".join(raw_array) + "]"
+        #data = rdw
+        # TODO skip json send string
+        data = json.loads(rdw)
+        #types = resp[0] if len(resp) > 0 else None
+        #data = resp[1:] if len(resp) > 1 else None
         del output['data']
         return data, types

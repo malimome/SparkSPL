@@ -14,7 +14,6 @@ import operator
 import re
 import sys
 import warnings
-import log
 
 __version__ = "0.7dev"
 

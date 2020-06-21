@@ -4,6 +4,7 @@ import configparser
 
 
 class Storage(object):
+    # TODO this should be configurable
     CURDIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../static")
 
     def __init__(self, name):

@@ -17,6 +17,7 @@ class Source:
         source_id = payload['name']
         submit_time = int(time.time())
         source = {
+            "index": payload["index"],
             "desc": payload['description'],
             "query": payload['query'],
             "submit_time": submit_time,

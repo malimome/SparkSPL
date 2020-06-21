@@ -24,8 +24,8 @@ def split_pipes(query):
 
 
 def build_end_query(query, meta, imports, udfs):
+    # removed val sqlContext = new org.apache.spark.sql.SQLContext(sc)
     search_template = """
-val sqlContext = new org.apache.spark.sql.SQLContext(sc)
 {imports}
 {udfs}
 {query}

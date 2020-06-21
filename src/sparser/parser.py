@@ -269,7 +269,9 @@ class MQL(Parser):
         return self.command
 
     def csv_cp(self):
-        pref = """var vartypes0001 = ""; for (f <- {prev_var}.schema.fields) vartypes0001 = vartypes0001 + "\\"" + f.name + "\\": \\"" + f.dataType.typeName + "\\", "; vartypes0001 = "{{" + vartypes0001.dropRight(2) + "}}" """
+        pref = """var vartypes0001 = ""; for (f <- {prev_var}.schema.fields) vartypes0001 = vartypes0001 """\
+                """+ "\\"" + f.name + "\\": \\"" + f.dataType.typeName + "\\", "; vartypes0001 = "{{" + """\
+                """vartypes0001.dropRight(2) + "}}" """
         self.command = {"command": CPTerminal(
             command="(vartypes0001 +: {prev_var}.toJSON.collect()).foreach(println)",
             command_name=None,
