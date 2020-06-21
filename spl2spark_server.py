@@ -1,11 +1,22 @@
-from flask import Flask, request, session
+import hmac
+import logging
+
+from flask import Flask, request
 from flask_restx import Resource, Api as BaseApi, fields
 from webargs import fields as wfields, validate
-from webargs.flaskparser import use_kwargs#, parser
-from src.core import jb, sc, dshb, sr, id, core_loop
+from webargs.flaskparser import use_kwargs
+
 import settings
-#from flask_restplus_patched._http import HTTPStatus
-#from src.utils import http_exceptions as he
+from src.core import jb, sc, dshb, sr, id, core_loop
+from src.search import QueryExecutionError
+from src.sparkcontroller.webreq import UpstreamError
+from src.utils.validation import ValidationError, NotFoundError
+
+logging.basicConfig(level=logging.DEBUG if settings.FLASK_DEBUG else logging.INFO)
+log = logging.getLogger("sparkify")
+
+PUBLIC_PATHS = ("/", "/doc/", "/swagger.json")
+PUBLIC_PREFIXES = ("/swaggerui/",)
 
 
 class Api(BaseApi):
@@ -18,185 +29,169 @@ class Api(BaseApi):
         return ''
 
 
-core_loop()
 app = Flask(__name__)
-#app.config['RESTPLUS_VALIDATE'] = settings.RESTPLUS_VALIDATE
-#app.config['SERVER_NAME'] = settings.FLASK_SERVER_NAME
-#app.config['SWAGGER_UI_DOC_EXPANSION'] = settings.RESTPLUS_SWAGGER_UI_DOC_EXPANSION
-#app.config['RESTPLUS_MASK_SWAGGER'] = settings.RESTPLUS_MASK_SWAGGER
-api = Api(app, version='1.2', title="Porseh", description="Porseh service.", doc='/doc/')
-# TODO create a user session and tie Livy sessions to it.
+app.config["RESTX_MASK_SWAGGER"] = False
+app.config["ERROR_404_HELP"] = False
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+api = Api(app, version='1.3', title="Porseh", description="Porseh service.", doc='/doc/')
+
+if not settings.DISABLE_AUTH and not settings.API_KEYS:
+    log.warning("SPARKIFY_API_KEYS is empty: every API request will be rejected.")
+core_loop()
 
 
-def print_debug(ex):
-    if settings.FLASK_DEBUG:
-        print(str(ex))
+def _authorized():
+    supplied = request.headers.get("X-API-Key", "")
+    return any(hmac.compare_digest(supplied.encode(), key.encode()) for key in settings.API_KEYS)
+
+
+@app.before_request
+def authenticate():
+    if settings.DISABLE_AUTH or request.method == "OPTIONS":
+        return None
+    if request.path in PUBLIC_PATHS or request.path.startswith(PUBLIC_PREFIXES):
+        return None
+    if not _authorized():
+        return {"message": "Unauthorized"}, 401, {"WWW-Authenticate": "API-Key"}
+    return None
 
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
-    response.headers.add('server', 'Porseh')
+    origin = request.headers.get("Origin")
+    if origin and origin in settings.CORS_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type,X-API-Key"
+        response.headers["Access-Control-Allow-Methods"] = "GET,PUT,POST,DELETE"
+        response.headers.add("Vary", "Origin")
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store"
     return response
 
 
-@app.before_request
-def before_request():
-    print(session, request)
+# Handlers are matched in registration order, so specific ones come first.
+@api.errorhandler(ValidationError)
+def handle_validation(ex):
+    return {"message": str(ex)}, 400
+
+
+@api.errorhandler(QueryExecutionError)
+def handle_query_error(ex):
+    return {"message": str(ex)}, 400
+
+
+@api.errorhandler(NotFoundError)
+def handle_not_found(ex):
+    return {"message": str(ex)}, 404
+
+
+@api.errorhandler(UpstreamError)
+def handle_upstream(ex):
+    log.error("Upstream failure: %s", ex)
+    return {"message": "A backend service is unavailable"}, 502
+
+
+@api.errorhandler(Exception)
+def handle_unexpected(ex):
+    log.exception("Unhandled error")
+    return {"message": "Internal server error"}, 500
 
 
 @api.route('/')
 @api.response(200, 'App is successfully loaded')
-#@api.response(HTTPStatus.BAD_REQUEST, "BAD_REQUEST")
-class Index(Resource):
+class Home(Resource):
     @api.doc('project_info')
     def get(self):
         """ get app info """
-        result = {
+        return {
             "project": "Porseh",
             "description": "Porseh service.",
             "version": 1.3,
             "docs": "goto /doc for the api documentation"
         }
-        return result
+
+
+def _run_blocking(job_post):
+    job = jb.add_job(job_post)
+    try:
+        jb.post_job(job)
+        return jb.get_job(job["job_id"], mode="blocking")
+    finally:
+        jb.delete_quietly(job["job_id"])
 
 
 @api.route('/jobs/<string:query>/earliest/<string:earliest>/latest/<string:latest>')
 class Search(Resource):
     @api.doc('Search Api, get result in blocking mode!')
     def post(self, query, earliest, latest):
-        """ run a query and add it as job """
-        job_post = {
-            'query': query,
-            'earliest': earliest,
-            'latest': latest,
-            'mode': 'blocking',
-            'priority': 'normal'
-        }
-        try:
-            job_ = jb.add_job(job_post)
-            jb.post_job(job_)
-            result = jb.get_job(job_["job_id"], mode="blocking")
-            jb.del_job(job_["job_id"])
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return result
+        """ run a query in blocking mode and return the result """
+        return _run_blocking({'query': query, 'earliest': earliest, 'latest': latest,
+                              'mode': 'blocking', 'priority': 'normal'})
 
 
 job_post = api.model('Job', {
     'query': fields.String(description="The query to run for this report", required=True),
     'earliest': fields.String(description="The earliest time to fetch data."),
     'latest': fields.String(description="The latest time to fetch data."),
-    'priority': fields.String(reuquired=False, enum=["normal", "low", "high"],
-                default="normal", description="low, normal or high (medium is default)."),
-    'mode': fields.String(reuquired=False, enum=["normal", "blocking"],
-                default="normal", description="blocking or normal"),
-    'testing': fields.String(required=False, description='Set to y in test mode.')
+    'priority': fields.String(required=False, enum=["normal", "low", "high"],
+                              default="normal", description="low, normal or high."),
+    'mode': fields.String(required=False, enum=["normal", "blocking"],
+                          default="normal", description="blocking or normal"),
+    'testing': fields.String(required=False, description='Set to y in debug mode only.')
 })
 
 
 @api.route('/jobs')
 class Jobs(Resource):
     @api.doc('Get list of jobs')
-    #@api.marshal_with(Job) bring job's model here
     def get(self):
         """ get list of all jobs """
-        try:
-            return jb.get_jobs()
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        return jb.get_jobs()
 
     @api.doc('Create a new search job.')
     @api.expect(job_post, validate=True)
     def post(self):
         """ run a query and add it as job """
-        result = {}
-        try:
-            if settings.FLASK_DEBUG:
-                if "testing" in api.payload and api.payload["testing"] == "y":
-                    return jb.post_test_job()
-            job_ = jb.add_job(api.payload)
-            jb.post_job(job_)
-            if api.payload["mode"] != "blocking":
-                return job_
-            result = jb.get_job(job_["job_id"], mode=api.payload["mode"])
-            jb.del_job(job_["job_id"])
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return result
+        payload = api.payload
+        if settings.FLASK_DEBUG and payload.get("testing") == "y":
+            return jb.post_test_job()
+        if payload.get("mode") == "blocking":
+            return _run_blocking(payload)
+        job = jb.add_job(payload)
+        jb.post_job(job)
+        return job
 
 
 @api.route('/jobs/<string:job_id>')
 @api.doc(params={'job_id': 'Job_id string'})
 class JobId(Resource):
     args = {
-        'mode': wfields.Str(
-            required=False,
-            missing='normal',
-            choices=('blocking', 'normal'),
-            validate=validate.OneOf(['blocking', 'normal']),
-        ),
-        'offset': wfields.Int(
-            required=False,
-            missing=0,
-            validate=validate.Range(0, 999999999999999999)#, "Offset over limit")
-        ),
-        'count': wfields.Int(
-            required=False,
-            missing=10000,
-            validate=validate.Range(0, 100000) #, "Count over limit")
-        )
+        'mode': wfields.Str(load_default='normal', validate=validate.OneOf(['blocking', 'normal'])),
+        'offset': wfields.Int(load_default=0, validate=validate.Range(0, 10 ** 12)),
+        'count': wfields.Int(load_default=10000, validate=validate.Range(0, 100000)),
     }
     action = {
-        'action': wfields.Str(
-            required=True,
-            choices=('cancel', 'log'),
-            validate=validate.OneOf(['cancel', 'log']),
-        ),
+        'action': wfields.Str(required=True, validate=validate.OneOf(['cancel', 'log'])),
     }
 
-    @use_kwargs(args)
+    @use_kwargs(args, location="query")
     @api.doc('Get job id status and results')
     def get(self, job_id, mode, offset, count):
         """ Get job's status and result by id """
-        result = {}
-        try:
-            result = jb.get_job(job_id, mode, offset, count)
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-        return result
+        return jb.get_job(job_id, mode, offset, count)
 
-    @use_kwargs(action)
+    @use_kwargs(action, location="query")
     @api.doc('Cancels a job')
     def put(self, job_id, action):
-        try:
-            if action == "cancel":
-                result = jb.stop_job(job_id)
-            else:
-                raise NotImplemented
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-        return result
+        """ Cancel a job """
+        if action == "cancel":
+            return jb.stop_job(job_id)
+        return {"message": "Action %s is not implemented" % action}, 501
 
     def delete(self, job_id):
         """ Delete a job """
-        try:
-            result = jb.stop_job(job_id)
-            jb.del_job(job_id)
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        jb.cancel_and_delete(job_id)
+        return {"message": "success"}
 
 
 index_post = api.model('Index', {
@@ -208,60 +203,32 @@ index_post = api.model('Index', {
 
 
 @api.route('/indexes')
-class Index(Resource):
+class Indexes(Resource):
     @api.doc('Get list of indexes')
     def get(self):
         """ get list of all indexes """
-        try:
-            return id.get_indexes()
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        return id.get_indexes()
 
     @api.doc('Create a new index.')
     @api.expect(index_post, validate=True)
     def post(self):
         """ add a new index """
-        try:
-            index = id.add_index(api.payload)
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
-        return {"message": "success"}
+        id.add_index(api.payload)
+        return {"message": "success"}, 201
 
 
 @api.route('/indexes/<string:name>')
 @api.doc(params={'name': 'index name'})
 class IndexName(Resource):
-    retention = {
-        'keep': wfields.Int(
-            required=False,
-        ),
-    }
-
     @api.doc('Get index by name')
     def get(self, name):
         """ Get index by name """
-        result = {}
-        try:
-            result = id.get_index(name)
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-        return result
+        return id.get_index(name)
 
-    @use_kwargs(retention)
-    def delete(self, name, keep):
+    def delete(self, name):
         """ Delete an index """
-        try:
-            # TODO keep is the number of last days to keep the data and delete the rest
-            jb.del_index(name)
-        except Exception as ex:
-            print_debug(ex)
-            api.abort(404, str(ex))
-            #he.abort(HTTPStatus.INTERNAL_SERVER_ERROR)
+        id.del_index(name)
+        return {"message": "success"}
 
 
 sched_post = api.model('Schedule', {
@@ -285,10 +252,10 @@ class ScheduledJobs(Resource):
         """ get list of all scheduled reports """
         return sc.all_scheds()
 
-    @api.expect(sched_post)
+    @api.expect(sched_post, validate=True)
     def post(self):
         """ create a new scheduled report """
-        return sc.add_sched(api.payload)
+        return sc.add_sched(api.payload), 201
 
 
 @api.route('/schedules/<string:sched_id>')
@@ -296,20 +263,21 @@ class SchedId(Resource):
     @api.doc('Get sched id')
     def get(self, sched_id):
         """ Get scheduled report by id """
-        sched = sc.get_sched(sched_id)
-        return sched
+        return sc.get_sched(sched_id)
 
-    @api.expect(sched_post)
-    def update(self, sched_id):
-        sc.update_sched(sched_id, api.payload)
+    @api.expect(sched_post, validate=True)
+    def put(self, sched_id):
+        """ update a scheduled report """
+        return sc.update_sched(sched_id, api.payload)
 
     def delete(self, sched_id):
         """ delete scheduled report"""
         sc.del_sched(sched_id)
+        return {"message": "success"}
 
 
 source_post = api.model('Source', {
-    'name': fields.String(description="Source name"),
+    'name': fields.String(description="Source name", required=True),
     'description': fields.String(description="The description of the source"),
     'type': fields.String(description="default | elastic | hadoop | mysql | mssql | postgresql"),
     'connection': fields.String(description="index name in the default "),
@@ -323,29 +291,30 @@ class Sources(Resource):
     @api.doc('Get list of sources')
     def get(self):
         """ get list of all sources """
-        return sr.sources
+        return sr.all_sources()
 
-    @api.expect(source_post)
+    @api.expect(source_post, validate=True)
     def post(self):
         """ create a new source """
-        return sr.add_source(api.payload)
+        return sr.add_source(api.payload), 201
 
 
 @api.route('/sources/<string:src_id>')
 class SourceID(Resource):
     @api.doc('Get source by id')
     def get(self, src_id):
-        """ Get scheduled report by id """
-        src = sr.get_source(src_id)
-        return src
+        """ Get source by id """
+        return sr.get_public_source(src_id)
 
     @api.expect(source_post)
-    def update(self, src_id):
-        sr.update_source(src_id, api.payload)
+    def put(self, src_id):
+        """ update a source """
+        return sr.update_source(src_id, api.payload)
 
     def delete(self, src_id):
         """ delete a source """
         sr.del_source(src_id)
+        return {"message": "success"}
 
 
 dash_post = api.model('Dashboard', {
@@ -362,31 +331,30 @@ class Dashboard(Resource):
         """ get list of all dashboards """
         return dshb.all_dashs()
 
-    @api.expect(sched_post)
+    @api.expect(dash_post, validate=True)
     def post(self):
         """ create a new dashboard """
-        return dshb.add_dash(api.payload)
+        return dshb.add_dash(api.payload), 201
 
 
 @api.route('/dashboards/<string:dash_id>')
 class DashboardId(Resource):
     @api.doc('Get dash id')
     def get(self, dash_id):
-        """ Get scheduled report by id """
-        sched = dshb.get_dash(dash_id)
-        return sched
+        """ Get dashboard by id """
+        return dshb.get_dash(dash_id)
 
-    @api.expect(sched_post)
-    def update(self, dash_id):
-        dshb.update_dash(dash_id, api.payload)
+    @api.expect(dash_post, validate=True)
+    def put(self, dash_id):
+        """ update a dashboard """
+        return dshb.update_dash(dash_id, api.payload)
 
     def delete(self, dash_id):
         """ delete dashboard"""
         dshb.del_dash(dash_id)
+        return {"message": "success"}
 
 
 if __name__ == '__main__':
-    if settings.FLASK_DEBUG:
-        app.run(debug=True, use_reloader=False)
-    else:
-        app.run()
+    # Development server only; production runs under uwsgi (see sparkify.ini).
+    app.run(host="127.0.0.1", debug=False)

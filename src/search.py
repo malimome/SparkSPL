@@ -3,6 +3,10 @@ from src.sparser.search_trans import transform_search
 import json
 
 
+class QueryExecutionError(Exception):
+    """The query was accepted but Spark failed to run it; the message is safe to show."""
+
+
 class Search:
     sc = None
 
@@ -63,12 +67,11 @@ class Search:
     @staticmethod
     def prepare_output(result):
         if 'output' not in result:
-            raise Exception("No data!")
+            raise QueryExecutionError("The query returned no data")
         output = result['output']
         if output['status'] != 'ok':
-            error_msg = "Error: %s\n" % output['evalue'] if 'evalue' in output else "Error in query"
-            error_msg += "Trace: %s" % "".join(output['traceback']) if 'traceback' in output else "No Trace!"
-            raise Exception(error_msg)
+            # The Spark traceback is deliberately not returned: it leaks internals.
+            raise QueryExecutionError("Error: %s" % str(output.get('evalue', 'Error in query'))[:500])
         raw_result = output['data']['text/plain']
         # remove the last instance of vartypes!
         ind = raw_result.rfind("vartypes0001: String =")
@@ -81,12 +84,9 @@ class Search:
         types = raw_result[:data_ind]
         # data is a list of dicts for each result
         raw_array = raw_result[data_ind + 1:].split("\n")
-        # TODO validation?
-        rdw = "[" + ", ".join(raw_array) + "]"
-        #data = rdw
-        # TODO skip json send string
-        data = json.loads(rdw)
-        #types = resp[0] if len(resp) > 0 else None
-        #data = resp[1:] if len(resp) > 1 else None
+        try:
+            data = json.loads("[" + ", ".join(raw_array) + "]")
+        except ValueError:
+            raise QueryExecutionError("Could not parse the query output")
         del output['data']
         return data, types

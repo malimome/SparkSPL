@@ -1,52 +1,43 @@
-from src.sparkcontroller.zp import Zp
-from src.sparkcontroller.livy import Livy
+import logging
 import time
 
+from src.sparkcontroller.livy import Livy
+from src.sparkcontroller.webreq import UpstreamError
 
-class SparkController(object):
-    def __init__(self):
-        pass
+log = logging.getLogger(__name__)
 
-    @staticmethod
-    def post_search(search):
-        zp = Zp()
-        zp.create_note('rapinote')
-        zp.create_parag("1st parag", search)
-        zp.run_parag()
-        result = zp.get_parag()
-        zp.delete_note()
-        return result
-
-    def get_result(self):
-        pass
+SESSION_REFRESH_SECONDS = 240
 
 
 class SparkControllerLivy(object):
     lv = None
-    GET_TIME = time.time()
+    last_refresh = time.time()
 
     @staticmethod
     def init():
         SparkControllerLivy.lv = Livy()
-        SparkControllerLivy.lv.init_livy()
+        try:
+            SparkControllerLivy.lv.init_livy()
+        except UpstreamError as ex:
+            log.warning("Livy is not reachable yet, will retry: %s", ex)
         return SparkControllerLivy
 
     @staticmethod
     def manage_livy_session(min_idle):
-        if time.time() - SparkControllerLivy.GET_TIME > 240:
+        if time.time() - SparkControllerLivy.last_refresh > SESSION_REFRESH_SECONDS:
             Livy.init_livy(force=True)
-            SparkControllerLivy.GET_TIME = time.time()
-        if min_idle <= len(Livy.idles):
-            return 0
+            SparkControllerLivy.last_refresh = time.time()
+        with Livy.lock:
+            if min_idle <= len(Livy.idles):
+                return 0
         session = Livy.create_idle_session()
-        session_id = session["id"]
-        Livy.sessions[session_id] = session
-        Livy.idles.add(session_id)
+        with Livy.lock:
+            Livy.sessions[session["id"]] = session
+            Livy.idles.add(session["id"])
 
     @staticmethod
     def post_search(search):
-        ssn_stmt = SparkControllerLivy.lv.post_query(search)
-        return ssn_stmt
+        return SparkControllerLivy.lv.post_query(search)
 
     @staticmethod
     def get_result(ssn_stmt):
@@ -63,4 +54,3 @@ class SparkControllerLivy(object):
     @staticmethod
     def cleanup(ssn_stmt):
         return SparkControllerLivy.lv.session_restore(ssn_stmt)
-

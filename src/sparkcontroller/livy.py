@@ -1,14 +1,17 @@
+import threading
 import time
+
+import settings
 from src.sparkcontroller import webreq as wr
 from src.utils.threader import threaded
 
 
 class Livy:
-    #LVURL = "http://localhost:8998"
-    LVURL = "http://localhost:8998"   #TODO add to config
-    headers = {} #{'Content-Type': 'application/json'}
+    LVURL = settings.LIVY_URL
+    headers = {}
     sessions = {}
     idles = set()
+    lock = threading.RLock()
 
     @staticmethod
     def init_livy(force=False):
@@ -17,22 +20,20 @@ class Livy:
             return
         r = wr.get_req(Livy.session_url()) #, data={"from": 0, "size": 30}
         sns = r.json()["sessions"]
-        Livy.sessions = {}
-        Livy.idles = set()
-        for session in sns:
-            Livy.sessions[session["id"]] = session
-            if session["state"] == "idle":
-                Livy.idles.add(session["id"])
+        with Livy.lock:
+            Livy.sessions = {}
+            Livy.idles = set()
+            for session in sns:
+                Livy.sessions[session["id"]] = session
+                if session["state"] == "idle":
+                    Livy.idles.add(session["id"])
 
     @staticmethod
     def create_session():
         """ Creates a session and returns the ID """
-        data = {
-            'kind': 'spark', 'proxyUser': 'user',
-            'driverCores': 2, 'executorCores': 2,
-            #'driverMemory': '', 'executorMemory': '', 'heartbeatTimeoutInSecond': 6*60*60
-        }
-        data = {'proxyUser': 'user', 'kind': 'spark'}
+        data = {'kind': 'spark'}
+        if settings.LIVY_PROXY_USER:
+            data['proxyUser'] = settings.LIVY_PROXY_USER
         r = wr.post_req(Livy.session_url(), data=None, json=data, header=Livy.headers)
         session_id = r.json()["id"]
         return session_id
@@ -54,9 +55,14 @@ class Livy:
     def wait_session_idle(session_id):
         """ Query the session until it becomes idle """
         session_url = Livy.session_url_from_id(session_id)
+        deadline = time.time() + settings.LIVY_SESSION_TIMEOUT
         r = Livy.get_session(session_url)
         while r['state'] != 'idle':
-            time.sleep(3)  #TODO deep config
+            if r['state'] in ('error', 'dead', 'killed', 'shutting_down'):
+                raise wr.UpstreamError("Livy session %s is %s" % (session_id, r['state']))
+            if time.time() > deadline:
+                raise wr.UpstreamError("Timed out waiting for Livy session %s" % session_id)
+            time.sleep(3)
             r = Livy.get_session(session_url)
         return r
 
@@ -71,12 +77,10 @@ class Livy:
     @staticmethod
     def get_free_session():
         """ Get a free idle session, if not exist, create one and return """
-        session_id = None
-        if len(Livy.idles) != 0:
-            session_id = Livy.idles.pop()
-        else:
-            session_id = Livy.create_idle_session()["id"]
-        return session_id
+        with Livy.lock:
+            if len(Livy.idles) != 0:
+                return Livy.idles.pop()
+        return Livy.create_idle_session()["id"]
 
     @staticmethod
     def post_query(search):
@@ -85,10 +89,10 @@ class Livy:
         statements_url = Livy.stmt_url_from_id(session_id)
         data = {'code': search}
         r = wr.post_req(statements_url, json=data, header=Livy.headers)
-        stmt_pf = r.headers['location']
+        stmt_pf = r.headers.get('location', '')
         stpos = stmt_pf.rfind("/")
         if stpos == -1:
-            raise Exception("Fatal error!")
+            raise wr.UpstreamError("Livy did not return a statement location")
         stmt_id = stmt_pf[stpos+1:]
         return {"sid": session_id, "tid": stmt_id}
 
@@ -108,7 +112,12 @@ class Livy:
     def get_result(ssn_stmt):
         """ Call to get results until it is available """
         result = Livy.get_result_async(ssn_stmt)
+        deadline = time.time() + settings.BLOCKING_TIMEOUT
         while result['state'] != 'available':
+            if result['state'] in ('error', 'cancelled'):
+                return result
+            if time.time() > deadline:
+                raise wr.UpstreamError("Timed out waiting for the query result")
             time.sleep(2)
             result = Livy.get_result_async(ssn_stmt)
         #Livy.session_restore(ssn_stmt)
@@ -129,11 +138,13 @@ class Livy:
         """ Restore the session to idle """
         # TODO check if we run into race conditions
         session_id = ssn_stmt["sid"]
-        if session_id in Livy.idles:
-            return 0
+        with Livy.lock:
+            if session_id in Livy.idles:
+                return 0
         session = Livy.wait_session_idle(session_id)
-        Livy.idles.add(session["id"])
-        Livy.sessions[session["id"]] = session
+        with Livy.lock:
+            Livy.idles.add(session["id"])
+            Livy.sessions[session["id"]] = session
         return 0
 
     @staticmethod

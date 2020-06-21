@@ -1,4 +1,7 @@
 from src.sparser.parser import *
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def split_pipes(query):
@@ -97,32 +100,5 @@ def transform_search(search, earliest, latest):
     #cparray.append(mql.gen_output())
     spark_query = "\n".join(subqueries)
     end_query = build_end_query(spark_query, mql.meta, mql.imports, mql.udfs)
-    print(end_query)
+    log.debug("Generated query: %s", end_query)
     return end_query
-
-
-"""
-source=filebeat 
-| stats count by p 
-| eval test=rand()
-| window first(rn) as c, last(rn) as g over group orderby @timestamp rows -1 to 1
-| join p,q [source=filebeat | eval t=rand() 
-| table p, t | join t [source=filebeat | table t, a] 
-| where t>5 ]
-| table p, q, t, a
-"""
-q = """source=filebeat | table offset, @timestamp
-| eval group = offset % 10, rn = rand() % 10, rn2=rand() % 25
-| timechart interval="10 minute" count by group """
-q = """source=varlog
-| eval ip= rex_extract(message, "(\d+\.\d+\.\d+\.\d+)")
-| eval attemptedUser=rex_extract(message, "user (\w+)")
-| fillnull value="-" ip
-| stats count as ciphost by ip, attemptedUser, host
-| union [source=netflow
-| stats count, sum(source_net_bytes_total) as source_bytes, sum(dest_net_bytes_total) as dest_bytes,
- dc(flow_id) as distinctFlows
- by dest_ip, dest_port, source_ip, source_port, host | rename source_ip as ip]
-"""
-
-e = transform_search(q, earliest="now-1h", latest="now")

@@ -1,32 +1,25 @@
-import uuid
-
-from src import storage as st
+from src.crud import EntityStore
 
 
-class DashboardMgm:
+class DashboardMgm(EntityStore):
+    LABEL = "dashboard"
+    FIELDS = ("name", "description", "xml")
+
     def __init__(self):
-        self.sstorage = st.INIStorage("dashboards.conf")
-        self.dashs = self.sstorage.getall()
+        super(DashboardMgm, self).__init__("dashboards.conf")
 
     def all_dashs(self):
-        return self.dashs
+        return self.all()
 
     def add_dash(self, dashboard):
-        dash_id = str(uuid.uuid1())
-        self.dashs = self.sstorage.add(dash_id, dashboard)
-        return {
-            "dash_id": dash_id,
-            "dash": dashboard
-        }
+        dash_id, item = self.add(dashboard)
+        return {"dash_id": dash_id, "dash": item}
 
     def get_dash(self, dash_id):
-        sched = self.dashs[dash_id]
-        return sched
+        return self.get(dash_id)
 
     def update_dash(self, dash_id, dashboard):
-        self.dashs = self.sstorage.update(dash_id, dashboard)
+        return self.update(dash_id, dashboard)
 
     def del_dash(self, dash_id):
-        self.dashs = self.sstorage.delete(dash_id)
-
-
+        self.delete(dash_id)

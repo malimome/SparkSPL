@@ -1,43 +1,41 @@
+import threading
+
 import src.storage as st
+from src.utils import validation as v
+from src.utils.validation import NotFoundError
 
 
 class Index:
-    istorage = None
-    indexes = None
+    """Index registry. Instantiate once; all methods are thread-safe."""
+    FIELDS = ("retention", "retention_size", "readonly")
 
-    @staticmethod
-    def init():
-        if Index.istorage is None:
-            Index.istorage = st.JINIStorage("indexes.conf")
-            Index.indexes = Index.istorage.getall()
-        return Index
+    def __init__(self):
+        self.istorage = st.INIStorage("indexes.conf")
+        self.lock = threading.RLock()
 
-    @staticmethod
-    def get_indexes():
-        return Index.indexes
+    def get_indexes(self):
+        with self.lock:
+            return dict(self.istorage.getall())
 
-    @staticmethod
-    def post_index(index):
-        Index.indexes[index["name"]] = index
-        Index.indexes = Index.istorage.update(index["name"], index)
-        return 0
+    def _clean(self, index):
+        return {f: index[f] for f in self.FIELDS if index.get(f) is not None}
 
-    @staticmethod
-    def add_index(index):
-        Index.indexes = Index.istorage.add(index["name"], index)
+    def add_index(self, index):
+        name = v.name(index.get("name"), "index name")
+        with self.lock:
+            if name in self.istorage.getall():
+                raise v.ValidationError("Index %s already exists" % name)
+            self.istorage.add(name, self._clean(index))
         return index
 
-    @staticmethod
-    def get_index(name):
-        Index.indexes = Index.istorage.getall()
-        if name in Index.indexes:
-            return Index.indexes[name]
-        else:
-            raise Exception("Index %s does not exist" % name)
+    def get_index(self, name):
+        with self.lock:
+            indexes = self.istorage.getall()
+            if name not in indexes:
+                raise NotFoundError("Index %s does not exist" % name)
+            return indexes[name]
 
-    @staticmethod
-    def del_job(name):
-        Index.indexes = Index.istorage.delete(name)
-        return 0
-
-
+    def del_index(self, name):
+        with self.lock:
+            self.get_index(name)
+            self.istorage.delete(name)
